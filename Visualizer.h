@@ -17,6 +17,7 @@ typedef struct {
 extern NodeVisual nodesLayout[NODE_COUNT];
 
 void InitGraphLayout(int screenWidth, int screenHeight);
+void drawEdges(Graph *graph);
 void DrawStaticGraph(void);
 
 #endif

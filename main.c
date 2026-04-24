@@ -14,7 +14,7 @@ int main() {
     }
 
     const int screenWidth = 650;
-    const int screenHeight =550;
+    const int screenHeight = 550;
 
     InitWindow(screenWidth, screenHeight, "Delivery System Visualizer");
     InitGraphLayout(screenWidth, screenHeight);
@@ -24,6 +24,7 @@ int main() {
         BeginDrawing();
         ClearBackground(DARKGRAY);
 
+        drawEdges(graph);
         DrawStaticGraph();
 
         EndDrawing();
@@ -34,4 +35,3 @@ int main() {
 
     return 0;
 }
-

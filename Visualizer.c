@@ -6,22 +6,71 @@ NodeVisual nodesLayout[NODE_COUNT];
 void InitGraphLayout(int screenWidth, int screenHeight) {
     float centerY = screenHeight * 0.55f;
 
-    // margins
     float startX = 80.0f;
     float endX = screenWidth - 120.0f;
     float hSpacing = (endX - startX) / 3.0f;
 
-    // middle row
     nodesLayout[1] = (NodeVisual){1, {startX, centerY}, "Customer 1", LIGHTGRAY};
     nodesLayout[2] = (NodeVisual){2, {startX + hSpacing, centerY}, "Hub Alpha", LIGHTGRAY};
     nodesLayout[3] = (NodeVisual){3, {startX + 2 * hSpacing, centerY}, "Customer B", LIGHTGRAY};
     nodesLayout[5] = (NodeVisual){5, {startX + 3 * hSpacing, centerY}, "Destination Hub", DARKGRAY};
 
-    // top node
     nodesLayout[0] = (NodeVisual){0, {nodesLayout[1].position.x + hSpacing / 2, centerY - 160}, "Warehouse", SKYBLUE};
 
-    // bottom node
     nodesLayout[4] = (NodeVisual){4, {nodesLayout[3].position.x, centerY + 130}, "Hub Beta", LIGHTGRAY};
+}
+
+void drawCurvedLine(Vector2 start, Vector2 end, Vector2 control) {
+    Vector2 previous = start;
+
+    for (int i = 1; i <= 30; i++) {
+        float t = i / 30.0f;
+        float u = 1.0f - t;
+
+        Vector2 point = {
+            u * u * start.x + 2 * u * t * control.x + t * t * end.x,
+            u * u * start.y + 2 * u * t * control.y + t * t * end.y
+        };
+
+        DrawLineEx(previous, point, 3, WHITE);
+        previous = point;
+    }
+}
+
+void drawEdges(Graph *graph) {
+    if (graph == NULL) return;
+
+    for (int i = 0; i < graph->numNodes; i++) {
+        Edge *current = graph->adjList[i];
+
+        while (current != NULL) {
+            int from = i;
+            int to = current->to;
+
+            Vector2 start = nodesLayout[from].position;
+            Vector2 end = nodesLayout[to].position;
+
+            if (from == 2 && to == 5) {
+                Vector2 control = {
+                    (start.x + end.x) / 2,
+                    start.y - 100
+                };
+                drawCurvedLine(start, end, control);
+            }
+            else if (from == 1 && to == 3) {
+                Vector2 control = {
+                    (start.x + end.x) / 2,
+                    start.y + 120
+                };
+                drawCurvedLine(start, end, control);
+            }
+            else {
+                DrawLineEx(start, end, 3, WHITE);
+            }
+
+            current = current->next;
+        }
+    }
 }
 
 void DrawStaticGraph(void) {
@@ -30,17 +79,13 @@ void DrawStaticGraph(void) {
     int titleX = GetScreenWidth() / 2 - MeasureText(title, titleSize) / 2;
     int titleY = 40;
 
-    // title shadow
     DrawText(title, titleX + 2, titleY + 2, titleSize, BLACK);
-    // title main
     DrawText(title, titleX, titleY, titleSize, WHITE);
 
     for (int i = 0; i < NODE_COUNT; i++) {
-        // draw node
         DrawCircleV(nodesLayout[i].position, NODE_RADIUS, nodesLayout[i].color);
         DrawCircleLinesV(nodesLayout[i].position, NODE_RADIUS, WHITE);
 
-        // node id
         char idText[4];
         sprintf(idText, "%d", nodesLayout[i].id);
 
@@ -48,19 +93,14 @@ void DrawStaticGraph(void) {
         int idX = (int)(nodesLayout[i].position.x - MeasureText(idText, idSize) / 2);
         int idY = (int)(nodesLayout[i].position.y - 12);
 
-        // id shadow
         DrawText(idText, idX + 1, idY + 1, idSize, DARKGRAY);
-        // id main
         DrawText(idText, idX, idY, idSize, BLACK);
 
-        // node name
         int nameSize = 18;
         int nameX = (int)(nodesLayout[i].position.x - MeasureText(nodesLayout[i].name, nameSize) / 2);
         int nameY = (int)(nodesLayout[i].position.y + 42);
 
-        // name shadow
         DrawText(nodesLayout[i].name, nameX + 1, nameY + 1, nameSize, BLACK);
-        // name main
         DrawText(nodesLayout[i].name, nameX, nameY, nameSize, WHITE);
     }
 }
