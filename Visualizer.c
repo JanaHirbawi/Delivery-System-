@@ -1,7 +1,24 @@
-#include "Visualizer.h"
 #include <stdio.h>
+#include <math.h>
+#include "raylib.h"
+#include "Visualizer.h"
+#include "Graph.h"
 
 NodeVisual nodesLayout[NODE_COUNT];
+
+static Color EDGE_COLOR = {220, 235, 245, 255};
+static Color ARROW_COLOR = {255, 185, 90, 255};
+static Color GLOW_COLOR = {90, 200, 255, 255};
+
+static Color PATH_COLOR = {255, 220, 80, 255};
+static Color PATH_GLOW = {255, 170, 40, 255};
+
+static Color NODE_BORDER = {245, 245, 245, 255};
+static Color TEXT_SHADOW = {10, 10, 10, 255};
+static Color TITLE_COLOR = {245, 245, 245, 255};
+
+static int shortestPath[] = {0, 2, 5};
+static int shortestPathLength = 3;
 
 void InitGraphLayout(int screenWidth, int screenHeight) {
     float centerY = screenHeight * 0.55f;
@@ -10,31 +27,75 @@ void InitGraphLayout(int screenWidth, int screenHeight) {
     float endX = screenWidth - 120.0f;
     float hSpacing = (endX - startX) / 3.0f;
 
-    nodesLayout[1] = (NodeVisual){1, {startX, centerY}, "Customer 1", LIGHTGRAY};
-    nodesLayout[2] = (NodeVisual){2, {startX + hSpacing, centerY}, "Hub Alpha", LIGHTGRAY};
-    nodesLayout[3] = (NodeVisual){3, {startX + 2 * hSpacing, centerY}, "Customer B", LIGHTGRAY};
-    nodesLayout[5] = (NodeVisual){5, {startX + 3 * hSpacing, centerY}, "Destination Hub", DARKGRAY};
+    nodesLayout[1] = (NodeVisual){1, {startX, centerY}, "Customer 1", (Color){230, 235, 245, 255}};
+    nodesLayout[2] = (NodeVisual){2, {startX + hSpacing, centerY}, "Hub Alpha", (Color){170, 210, 255, 255}};
+    nodesLayout[3] = (NodeVisual){3, {startX + 2 * hSpacing, centerY}, "Customer B", (Color){230, 235, 245, 255}};
+    nodesLayout[5] = (NodeVisual){5, {startX + 3 * hSpacing, centerY}, "Destination Hub", (Color){130, 145, 170, 255}};
 
-    nodesLayout[0] = (NodeVisual){0, {nodesLayout[1].position.x + hSpacing / 2, centerY - 160}, "Warehouse", SKYBLUE};
-
-    nodesLayout[4] = (NodeVisual){4, {nodesLayout[3].position.x, centerY + 130}, "Hub Beta", LIGHTGRAY};
+    nodesLayout[0] = (NodeVisual){0, {nodesLayout[1].position.x + hSpacing / 2, centerY - 160}, "Warehouse", (Color){65, 210, 245, 255}};
+    nodesLayout[4] = (NodeVisual){4, {nodesLayout[3].position.x, centerY + 130}, "Hub Beta", (Color){205, 245, 220, 255}};
 }
 
-void drawCurvedLine(Vector2 start, Vector2 end, Vector2 control) {
+int isShortestPathEdge(int from, int to) {
+    for (int i = 0; i < shortestPathLength - 1; i++) {
+        if (shortestPath[i] == from && shortestPath[i + 1] == to) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static Vector2 getBezierPoint(Vector2 start, Vector2 end, Vector2 control, float t) {
+    float u = 1.0f - t;
+
+    Vector2 p = {
+        u * u * start.x + 2 * u * t * control.x + t * t * end.x,
+        u * u * start.y + 2 * u * t * control.y + t * t * end.y
+    };
+
+    return p;
+}
+
+void drawArrowHead(Vector2 start, Vector2 end, Color color) {
+    float angle = atan2f(end.y - start.y, end.x - start.x);
+    float arrowLength = 18.0f;
+    float arrowAngle = 0.55f;
+
+    Vector2 tip = {
+        end.x - NODE_RADIUS * cosf(angle),
+        end.y - NODE_RADIUS * sinf(angle)
+    };
+
+    Vector2 left = {
+        tip.x - arrowLength * cosf(angle - arrowAngle),
+        tip.y - arrowLength * sinf(angle - arrowAngle)
+    };
+
+    Vector2 right = {
+        tip.x - arrowLength * cosf(angle + arrowAngle),
+        tip.y - arrowLength * sinf(angle + arrowAngle)
+    };
+
+    DrawLineEx(tip, left, 4, color);
+    DrawLineEx(tip, right, 4, color);
+}
+
+void drawCurvedLine(Vector2 start, Vector2 end, Vector2 control, Color edgeColor, Color glowColor, Color arrowColor) {
     Vector2 previous = start;
+    Vector2 beforeEnd = start;
 
     for (int i = 1; i <= 30; i++) {
         float t = i / 30.0f;
-        float u = 1.0f - t;
+        Vector2 point = getBezierPoint(start, end, control, t);
 
-        Vector2 point = {
-            u * u * start.x + 2 * u * t * control.x + t * t * end.x,
-            u * u * start.y + 2 * u * t * control.y + t * t * end.y
-        };
+        DrawLineEx(previous, point, 12, Fade(glowColor, 0.35f));
+        DrawLineEx(previous, point, 4, edgeColor);
 
-        DrawLineEx(previous, point, 3, WHITE);
+        if (i == 29) beforeEnd = previous;
         previous = point;
     }
+
+    drawArrowHead(beforeEnd, end, arrowColor);
 }
 
 void drawEdges(Graph *graph) {
@@ -50,22 +111,24 @@ void drawEdges(Graph *graph) {
             Vector2 start = nodesLayout[from].position;
             Vector2 end = nodesLayout[to].position;
 
+            int isPath = isShortestPathEdge(from, to);
+
+            Color edgeColor = isPath ? PATH_COLOR : EDGE_COLOR;
+            Color glowColor = isPath ? PATH_GLOW : GLOW_COLOR;
+            Color arrowColor = isPath ? PATH_COLOR : ARROW_COLOR;
+
             if (from == 2 && to == 5) {
-                Vector2 control = {
-                    (start.x + end.x) / 2,
-                    start.y - 100
-                };
-                drawCurvedLine(start, end, control);
+                Vector2 control = {(start.x + end.x) / 2, start.y - 100};
+                drawCurvedLine(start, end, control, edgeColor, glowColor, arrowColor);
             }
             else if (from == 1 && to == 3) {
-                Vector2 control = {
-                    (start.x + end.x) / 2,
-                    start.y + 120
-                };
-                drawCurvedLine(start, end, control);
+                Vector2 control = {(start.x + end.x) / 2, start.y + 120};
+                drawCurvedLine(start, end, control, edgeColor, glowColor, arrowColor);
             }
             else {
-                DrawLineEx(start, end, 3, WHITE);
+                DrawLineEx(start, end, 12, Fade(glowColor, 0.35f));
+                DrawLineEx(start, end, 4, edgeColor);
+                drawArrowHead(start, end, arrowColor);
             }
 
             current = current->next;
@@ -79,12 +142,16 @@ void DrawStaticGraph(void) {
     int titleX = GetScreenWidth() / 2 - MeasureText(title, titleSize) / 2;
     int titleY = 40;
 
-    DrawText(title, titleX + 2, titleY + 2, titleSize, BLACK);
-    DrawText(title, titleX, titleY, titleSize, WHITE);
+    DrawText(title, titleX + 3, titleY + 3, titleSize, TEXT_SHADOW);
+    DrawText(title, titleX, titleY, titleSize, TITLE_COLOR);
+
+    DrawText("Shortest Path: 0 -> 2 -> 5", 20, GetScreenHeight() - 35, 20, PATH_COLOR);
 
     for (int i = 0; i < NODE_COUNT; i++) {
+        DrawCircleV(nodesLayout[i].position, NODE_RADIUS + 9, Fade(nodesLayout[i].color, 0.22f));
+        DrawCircleV(nodesLayout[i].position, NODE_RADIUS + 4, NODE_BORDER);
         DrawCircleV(nodesLayout[i].position, NODE_RADIUS, nodesLayout[i].color);
-        DrawCircleLinesV(nodesLayout[i].position, NODE_RADIUS, WHITE);
+        DrawCircleLinesV(nodesLayout[i].position, NODE_RADIUS, RAYWHITE);
 
         char idText[4];
         sprintf(idText, "%d", nodesLayout[i].id);
@@ -93,14 +160,14 @@ void DrawStaticGraph(void) {
         int idX = (int)(nodesLayout[i].position.x - MeasureText(idText, idSize) / 2);
         int idY = (int)(nodesLayout[i].position.y - 12);
 
-        DrawText(idText, idX + 1, idY + 1, idSize, DARKGRAY);
+        DrawText(idText, idX + 1, idY + 1, idSize, TEXT_SHADOW);
         DrawText(idText, idX, idY, idSize, BLACK);
 
         int nameSize = 18;
         int nameX = (int)(nodesLayout[i].position.x - MeasureText(nodesLayout[i].name, nameSize) / 2);
         int nameY = (int)(nodesLayout[i].position.y + 42);
 
-        DrawText(nodesLayout[i].name, nameX + 1, nameY + 1, nameSize, BLACK);
-        DrawText(nodesLayout[i].name, nameX, nameY, nameSize, WHITE);
+        DrawText(nodesLayout[i].name, nameX + 1, nameY + 1, nameSize, TEXT_SHADOW);
+        DrawText(nodesLayout[i].name, nameX, nameY, nameSize, RAYWHITE);
     }
 }

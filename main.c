@@ -22,7 +22,13 @@ int main() {
 
     while (!WindowShouldClose()) {
         BeginDrawing();
-        ClearBackground(DARKGRAY);
+
+        DrawRectangleGradientV(
+            0, 0,
+            screenWidth, screenHeight,
+            (Color){18, 24, 38, 255},
+            (Color){45, 62, 90, 255}
+        );
 
         drawEdges(graph);
         DrawStaticGraph();
