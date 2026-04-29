@@ -127,9 +127,8 @@ Color arrowColor = ARROW_COLOR;
                 drawArrowHead(start, end, arrowColor);
             }
 
-char weightText[10];
+         char weightText[10];
 sprintf(weightText, "%d", current->weight);
-
 float midX;
 float midY;
 
@@ -138,22 +137,45 @@ if (from == 2 && to == 5) {
     Vector2 p = getBezierPoint(start, end, control, 0.5f);
 
     midX = p.x;
-    midY = p.y - 25;
+    midY = p.y;
+
+    // نرفع الرقم عمودي على المنحنى
+    midY -= 20;
 }
 else if (from == 1 && to == 3) {
     Vector2 control = {(start.x + end.x) / 2, start.y + 120};
     Vector2 p = getBezierPoint(start, end, control, 0.5f);
 
     midX = p.x;
-    midY = p.y -1;
+    midY = p.y;
+
+    midY -= 20;
 }
 else {
     midX = (start.x + end.x) / 2;
-    midY = (start.y + end.y) / 2 - 8;
+    midY = (start.y + end.y) / 2;
+
+    // نحسب اتجاه الخط
+    float dx = end.x - start.x;
+    float dy = end.y - start.y;
+    float length = sqrtf(dx*dx + dy*dy);
+
+    if (length != 0) {
+        dx /= length;
+        dy /= length;
+
+        // نحرك عمودي على الخط
+        float offset = 20;
+        midX -= dy * offset;
+        midY += dx * offset;
+    }
 }
 
-DrawText(weightText, (int)midX + 1, (int)midY + 1, 20, RAYWHITE);
-DrawText(weightText, (int)midX, (int)midY, 20, BLACK);            
+
+DrawText(weightText, midX + 1, midY + 1, 20, BLACK);
+
+
+DrawText(weightText, midX, midY, 20, SKYBLUE);         
         current = current->next;
         }
     }
