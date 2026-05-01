@@ -100,3 +100,62 @@ void dijkstra(Graph *graph, int source, int destination) {
     free(visited);
     free(parent);
 }
+
+
+int GetPathArray(Graph *graph, int source, int destination, int path[]) {
+    if (graph == NULL || source < 0 || destination < 0) return 0;
+
+    int n = graph->numNodes;
+    int *dist = (int *)malloc(n * sizeof(int));
+    int *visited = (int *)malloc(n * sizeof(int));
+    int *parent = (int *)malloc(n * sizeof(int));
+
+    for (int i = 0; i < n; i++) {
+        dist[i] = INT_MAX;
+        visited[i] = 0;
+        parent[i] = -1;
+    }
+
+    dist[source] = 0;
+
+    for (int count = 0; count < n - 1; count++) {
+        int u = findMinDistanceNode(dist, visited, n);
+        if (u == -1) break;
+        visited[u] = 1;
+
+        Edge *current = getNeighbors(graph, u);
+        while (current != NULL) {
+            int v = current->to;
+            int weight = current->weight;
+            if (!visited[v] && dist[u] != INT_MAX && dist[u] + weight < dist[v]) {
+                dist[v] = dist[u] + weight;
+                parent[v] = u;
+            }
+            current = current->next;
+        }
+    }
+
+    if (dist[destination] == INT_MAX) {
+        free(dist); free(visited); free(parent);
+        return 0;
+    }
+
+    int tempPath[100]; // مصفوفة مؤقتة
+    int pathCount = 0;
+    int curr = destination;
+
+    while (curr != -1) {
+        tempPath[pathCount++] = curr;
+        curr = parent[curr];
+    }
+
+    for (int i = 0; i < pathCount; i++) {
+        path[i] = tempPath[pathCount - 1 - i];
+    }
+
+    free(dist);
+    free(visited);
+    free(parent);
+
+    return pathCount; 
+}

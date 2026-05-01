@@ -19,5 +19,5 @@ extern NodeVisual nodesLayout[NODE_COUNT];
 void InitGraphLayout(int screenWidth, int screenHeight);
 void drawEdges(Graph *graph);
 void DrawStaticGraph(void);
-
+Vector2 GetNodePosition(int nodeIndex);
 #endif

@@ -193,3 +193,12 @@ void DrawStaticGraph(void) {
         DrawText(nodesLayout[i].name, nameX, nameY, nameSize, RAYWHITE);
     }
 }
+
+Vector2 GetNodePosition(int nodeIndex) {
+   
+    if (nodeIndex >= 0 && nodeIndex < NODE_COUNT) {
+        return nodesLayout[nodeIndex].position;
+    }
+    
+    return (Vector2){0.0f, 0.0f};
+}
