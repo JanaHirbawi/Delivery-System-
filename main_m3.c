@@ -6,6 +6,7 @@
 #ifdef MILESTONE_2_GUI
 #include "raylib.h"
 #include "Visualizer.h"
+#include "Animation.h"
 #endif
 
 int main() {
@@ -16,7 +17,15 @@ int main() {
         return 1;
     }
 
+    int path[100];
+    int pathLength = 0;
+    int totalDistance = 0;
+
+    dijkstra(graph, source, destination, path, &pathLength, &totalDistance);
+
 #ifdef MILESTONE_2_GUI
+    SetAnimationPath(path, pathLength);
+
     const int screenWidth = 650;
     const int screenHeight = 550;
 
@@ -34,16 +43,22 @@ int main() {
         drawEdges(graph);
         DrawStaticGraph();
 
-        Vector2 sourcePos = GetNodePosition(source);
-        DrawEntityAtSource(sourcePos);
+        int currentNode = GetCurrentNode();
+        if (currentNode != -1) {
+            Vector2 pos = GetNodePosition(currentNode);
+            DrawEntityAtSource(pos);
+        }
 
         EndDrawing();
     }
 
     CloseWindow();
-
 #else
-    dijkstra(graph, source, destination);
+    printf("Shortest Path:\n");
+    for (int i = 0; i < pathLength; i++) {
+        printf("%d ", path[i]);
+    }
+    printf("\nTotal Distance: %d\n", totalDistance);
 #endif
 
     freeGraph(graph);

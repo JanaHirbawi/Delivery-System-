@@ -3,7 +3,7 @@
 
 #include "Graph.h"
 
-void dijkstra(Graph *graph, int source, int destination);
-int GetPathArray(Graph *graph, int source, int destination, int path[]);
+void dijkstra(Graph *graph, int source, int destination,
+              int path[], int *pathLength, int *totalDistance);
 
 #endif

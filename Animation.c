@@ -1,53 +1,50 @@
 #include "Animation.h"
 #include "Visualizer.h"
-#include "Graph.h"
-#include <math.h>
 
-// 1. Initialize the entity at the starting point
 void InitEntity(MovingEntity *entity, Vector2 startPosition) {
     entity->currentPos = startPosition;
     entity->currentPathIndex = 0;
     entity->timer = 0.0f;
     entity->jumpStep = 0;
-    entity->status = ENTITY_IDLE; // Wait for Play button
+    entity->status = ENTITY_IDLE;
     entity->isFinished = false;
 }
 
-// 2. Core Logic: Handles Jumps (300ms) and Waiting (1s)
-void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaTime, void *graphPtr) {
-    // If finished or idle, do nothing
-    if (entity->isFinished || entity->status == ENTITY_IDLE) return;
+void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaTime, void *graph) {
+    if (entity->isFinished || entity->status == ENTITY_IDLE) {
+        return;
+    }
 
-    Graph *graph = (Graph *)graphPtr;
+    if (pathLength < 2) {
+        entity->isFinished = true;
+        entity->status = ENTITY_IDLE;
+        return;
+    }
+
     entity->timer += deltaTime;
 
-    // Get current node and next node in the path
     int u = path[entity->currentPathIndex];
     int v = path[entity->currentPathIndex + 1];
-
-    // Get edge weight (W) for jumps
-    int W = 1;
-    Edge *curr = graph->adjList[u];
-    while (curr) {
-        if (curr->to == v) { W = curr->weight; break; }
-        curr = curr->next;
-    }
 
     Vector2 startP = GetNodePosition(u);
     Vector2 endP = GetNodePosition(v);
 
-    // --- CASE 1: MOVING IN JUMPS (300ms per jump) ---
+    int W = 10;
+
     if (entity->status == ENTITY_MOVING) {
-        if (entity->timer >= 0.3f) { // 300ms passed
+        if (entity->timer >= 0.3f) {
             entity->jumpStep++;
             entity->timer = 0.0f;
 
-            // Calculate new position based on jump step / total W
             float t = (float)entity->jumpStep / W;
+
+            if (t > 1.0f) {
+                t = 1.0f;
+            }
+
             entity->currentPos.x = startP.x + t * (endP.x - startP.x);
             entity->currentPos.y = startP.y + t * (endP.y - startP.y);
 
-            // Reached the next node?
             if (entity->jumpStep >= W) {
                 if (entity->currentPathIndex + 1 == pathLength - 1) {
                     entity->isFinished = true;
@@ -55,13 +52,12 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
                 } else {
                     entity->status = ENTITY_WAITING;
                 }
+
                 entity->timer = 0.0f;
             }
         }
-    }
-    // --- CASE 2: WAITING AT NODE (1 second) ---
-    else if (entity->status == ENTITY_WAITING) {
-        if (entity->timer >= 1.0f) { // 1 second wait over
+    } else if (entity->status == ENTITY_WAITING) {
+        if (entity->timer >= 1.0f) {
             entity->currentPathIndex++;
             entity->jumpStep = 0;
             entity->timer = 0.0f;
@@ -70,7 +66,54 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
     }
 }
 
-// 3. Check if target coordinates reached
 bool HasReachedTarget(MovingEntity entity, Vector2 target) {
-    return (entity.currentPos.x == target.x && entity.currentPos.y == target.y);
+    return entity.currentPos.x == target.x && entity.currentPos.y == target.y;
+}
+
+void DrawMovingEntity(MovingEntity entity) {
+    DrawCircleV(entity.currentPos, 12, (Color){15, 35, 110, 255});
+}
+
+void DrawEntityAtSource(Vector2 sourcePosition) {
+    MovingEntity entity;
+    InitEntity(&entity, sourcePosition);
+    DrawMovingEntity(entity);
+}
+static int animationPath[100];
+static int animationPathLength = 0;
+static int currentPathIndex = 0;
+
+void SetAnimationPath(int path[], int length) {
+    animationPathLength = length;
+    currentPathIndex = 0;
+
+    for (int i = 0; i < length; i++) {
+        animationPath[i] = path[i];
+    }
+}
+
+int GetCurrentNode(void) {
+    if (animationPathLength == 0) {
+        return -1;
+    }
+
+    return animationPath[currentPathIndex];
+}
+
+int GetNextNode(void) {
+    if (animationPathLength == 0 || currentPathIndex >= animationPathLength - 1) {
+        return -1;
+    }
+
+    return animationPath[currentPathIndex + 1];
+}
+
+void MoveToNextPathIndex(void) {
+    if (currentPathIndex < animationPathLength - 1) {
+        currentPathIndex++;
+    }
+}
+
+bool IsPathFinished(void) {
+    return currentPathIndex >= animationPathLength - 1;
 }

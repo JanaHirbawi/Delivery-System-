@@ -4,30 +4,30 @@
 #include "raylib.h"
 #include <stdbool.h>
 
-// Entity status: moving, waiting, or idle
 typedef enum {
-    ENTITY_IDLE,    
-    ENTITY_MOVING,  
-    ENTITY_WAITING  
+    ENTITY_IDLE,
+    ENTITY_MOVING,
+    ENTITY_WAITING
 } EntityStatus;
 
-// Main structure for movement and timing
 typedef struct {
-    Vector2 currentPos;      // (x, y) on screen
-    int currentPathIndex;    // Current node in path array
-    float timer;             // Timer for 300ms jumps and 1s wait
-    int jumpStep;            // Jump counter (0 to W)
-    EntityStatus status;     // Current movement state
-    bool isFinished;         // True when destination reached
+    Vector2 currentPos;
+    int currentPathIndex;
+    float timer;
+    int jumpStep;
+    EntityStatus status;
+    bool isFinished;
 } MovingEntity;
 
-// Initialize entity at the start
 void InitEntity(MovingEntity *entity, Vector2 startPosition);
-
-// Core logic for jumps and node waiting
 void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaTime, void *graph);
-
-// Check if a specific target is reached
 bool HasReachedTarget(MovingEntity entity, Vector2 target);
 
+void DrawMovingEntity(MovingEntity entity);
+void DrawEntityAtSource(Vector2 sourcePosition);
+void SetAnimationPath(int path[], int length);
+int GetCurrentNode(void);
+int GetNextNode(void);
+void MoveToNextPathIndex(void);
+bool IsPathFinished(void);
 #endif

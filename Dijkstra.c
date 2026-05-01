@@ -17,17 +17,35 @@ static int findMinDistanceNode(int dist[], int visited[], int n) {
     return minIndex;
 }
 
-static void printPath(int parent[], int node) {
-    if (parent[node] == -1) {
-        printf("%d", node);
-        return;
+static void buildPath(int parent[], int source, int destination,
+                      int path[], int *pathLength) {
+    int temp[100];
+    int count = 0;
+    int current = destination;
+
+    while (current != -1) {
+        temp[count++] = current;
+
+        if (current == source) {
+            break;
+        }
+
+        current = parent[current];
     }
 
-    printPath(parent, parent[node]);
-    printf(" -> %d", node);
+    *pathLength = 0;
+
+    for (int i = count - 1; i >= 0; i--) {
+        path[*pathLength] = temp[i];
+        (*pathLength)++;
+    }
 }
 
-void dijkstra(Graph *graph, int source, int destination) {
+void dijkstra(Graph *graph, int source, int destination,
+              int path[], int *pathLength, int *totalDistance) {
+    *pathLength = 0;
+    *totalDistance = -1;
+
     if (graph == NULL) {
         printf("No path found\n");
         return;
@@ -41,6 +59,10 @@ void dijkstra(Graph *graph, int source, int destination) {
     }
 
     if (source == destination) {
+        path[0] = source;
+        *pathLength = 1;
+        *totalDistance = 0;
+
         printf("%d\n", source);
         printf("0\n");
         return;
@@ -75,12 +97,15 @@ void dijkstra(Graph *graph, int source, int destination) {
 
         visited[u] = 1;
 
-        Edge *current = getNeighbors(graph, u);
+        Edge *current = graph->adjList[u];
+
         while (current != NULL) {
             int v = current->to;
             int weight = current->weight;
 
-            if (!visited[v] && dist[u] != INT_MAX && dist[u] + weight < dist[v]) {
+            if (!visited[v] &&
+                dist[u] != INT_MAX &&
+                dist[u] + weight < dist[v]) {
                 dist[v] = dist[u] + weight;
                 parent[v] = u;
             }
@@ -92,70 +117,20 @@ void dijkstra(Graph *graph, int source, int destination) {
     if (dist[destination] == INT_MAX) {
         printf("No path found\n");
     } else {
-        printPath(parent, destination);
-        printf("\n%d\n", dist[destination]);
-    }
+        buildPath(parent, source, destination, path, pathLength);
+        *totalDistance = dist[destination];
 
-    free(dist);
-    free(visited);
-    free(parent);
-}
-
-
-int GetPathArray(Graph *graph, int source, int destination, int path[]) {
-    if (graph == NULL || source < 0 || destination < 0) return 0;
-
-    int n = graph->numNodes;
-    int *dist = (int *)malloc(n * sizeof(int));
-    int *visited = (int *)malloc(n * sizeof(int));
-    int *parent = (int *)malloc(n * sizeof(int));
-
-    for (int i = 0; i < n; i++) {
-        dist[i] = INT_MAX;
-        visited[i] = 0;
-        parent[i] = -1;
-    }
-
-    dist[source] = 0;
-
-    for (int count = 0; count < n - 1; count++) {
-        int u = findMinDistanceNode(dist, visited, n);
-        if (u == -1) break;
-        visited[u] = 1;
-
-        Edge *current = getNeighbors(graph, u);
-        while (current != NULL) {
-            int v = current->to;
-            int weight = current->weight;
-            if (!visited[v] && dist[u] != INT_MAX && dist[u] + weight < dist[v]) {
-                dist[v] = dist[u] + weight;
-                parent[v] = u;
+        for (int i = 0; i < *pathLength; i++) {
+            printf("%d", path[i]);
+            if (i < *pathLength - 1) {
+                printf(" -> ");
             }
-            current = current->next;
         }
-    }
 
-    if (dist[destination] == INT_MAX) {
-        free(dist); free(visited); free(parent);
-        return 0;
-    }
-
-    int tempPath[100]; // مصفوفة مؤقتة
-    int pathCount = 0;
-    int curr = destination;
-
-    while (curr != -1) {
-        tempPath[pathCount++] = curr;
-        curr = parent[curr];
-    }
-
-    for (int i = 0; i < pathCount; i++) {
-        path[i] = tempPath[pathCount - 1 - i];
+        printf("\n%d\n", *totalDistance);
     }
 
     free(dist);
     free(visited);
     free(parent);
-
-    return pathCount; 
 }
