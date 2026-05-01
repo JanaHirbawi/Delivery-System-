@@ -43,7 +43,6 @@ int main() {
 
 #else
     // --- Milestone 1: Terminal Output (Dijkstra) ---
-    printf("--- Milestone 1: Shortest Path Calculation ---\n");
     dijkstra(graph, source, destination);
 #endif
 
