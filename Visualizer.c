@@ -204,16 +204,4 @@ Vector2 GetNodePosition(int nodeIndex) {
     return (Vector2){0.0f, 0.0f};
 }
 
-void DrawMovingEntity(MovingEntity entity) {
-    DrawCircleV(entity.position, entity.radius, entity.color);
-}
 
-void DrawEntityAtSource(Vector2 sourcePosition) {
-    MovingEntity entity = {
-        sourcePosition,
-        12,
-        (Color){15, 35, 110, 255}
-    };
-
-    DrawMovingEntity(entity);
-}
