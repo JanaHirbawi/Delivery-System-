@@ -108,11 +108,13 @@ void drawEdges(Graph *graph) {
             int from = i;
             int to = current->to;
 
-            Vector2 start = nodesLayout[from].position;            Vector2 end = nodesLayout[to].position;
+            Vector2 start = nodesLayout[from].position;
+            Vector2 end = nodesLayout[to].position;
 
             Color edgeColor  = EDGE_COLOR;
-Color glowColor  = GLOW_COLOR;
-Color arrowColor = ARROW_COLOR;  
+            Color glowColor  = GLOW_COLOR;
+            Color arrowColor = ARROW_COLOR;
+
             if (from == 2 && to == 5) {
                 Vector2 control = {(start.x + end.x) / 2, start.y - 100};
                 drawCurvedLine(start, end, control, edgeColor, glowColor, arrowColor);
@@ -127,34 +129,35 @@ Color arrowColor = ARROW_COLOR;
                 drawArrowHead(start, end, arrowColor);
             }
 
-char weightText[10];
-sprintf(weightText, "%d", current->weight);
+            char weightText[10];
+            sprintf(weightText, "%d", current->weight);
 
-float midX;
-float midY;
+            float midX;
+            float midY;
 
-if (from == 2 && to == 5) {
-    Vector2 control = {(start.x + end.x) / 2, start.y - 100};
-    Vector2 p = getBezierPoint(start, end, control, 0.5f);
+            if (from == 2 && to == 5) {
+                Vector2 control = {(start.x + end.x) / 2, start.y - 100};
+                Vector2 p = getBezierPoint(start, end, control, 0.5f);
 
-    midX = p.x;
-    midY = p.y - 25;
-}
-else if (from == 1 && to == 3) {
-    Vector2 control = {(start.x + end.x) / 2, start.y + 120};
-    Vector2 p = getBezierPoint(start, end, control, 0.5f);
+                midX = p.x;
+                midY = p.y - 25;
+            }
+            else if (from == 1 && to == 3) {
+                Vector2 control = {(start.x + end.x) / 2, start.y + 120};
+                Vector2 p = getBezierPoint(start, end, control, 0.5f);
 
-    midX = p.x;
-    midY = p.y -1;
-}
-else {
-    midX = (start.x + end.x) / 2;
-    midY = (start.y + end.y) / 2 - 8;
-}
+                midX = p.x;
+                midY = p.y - 1;
+            }
+            else {
+                midX = (start.x + end.x) / 2;
+                midY = (start.y + end.y) / 2 - 8;
+            }
 
-DrawText(weightText, (int)midX + 1, (int)midY + 1, 20, RAYWHITE);
-DrawText(weightText, (int)midX, (int)midY, 20, BLACK);            
-        current = current->next;
+            DrawText(weightText, (int)midX + 1, (int)midY + 1, 20, RAYWHITE);
+            DrawText(weightText, (int)midX, (int)midY, 20, BLACK);
+
+            current = current->next;
         }
     }
 }
@@ -168,7 +171,6 @@ void DrawStaticGraph(void) {
     DrawText(title, titleX + 3, titleY + 3, titleSize, TEXT_SHADOW);
     DrawText(title, titleX, titleY, titleSize, TITLE_COLOR);
 
-    
     for (int i = 0; i < NODE_COUNT; i++) {
         DrawCircleV(nodesLayout[i].position, NODE_RADIUS + 9, Fade(nodesLayout[i].color, 0.22f));
         DrawCircleV(nodesLayout[i].position, NODE_RADIUS + 4, NODE_BORDER);
@@ -195,10 +197,23 @@ void DrawStaticGraph(void) {
 }
 
 Vector2 GetNodePosition(int nodeIndex) {
-   
     if (nodeIndex >= 0 && nodeIndex < NODE_COUNT) {
         return nodesLayout[nodeIndex].position;
     }
-    
+
     return (Vector2){0.0f, 0.0f};
+}
+
+void DrawMovingEntity(MovingEntity entity) {
+    DrawCircleV(entity.position, entity.radius, entity.color);
+}
+
+void DrawEntityAtSource(Vector2 sourcePosition) {
+    MovingEntity entity = {
+        sourcePosition,
+        12,
+        (Color){15, 35, 110, 255}
+    };
+
+    DrawMovingEntity(entity);
 }
