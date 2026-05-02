@@ -1,5 +1,15 @@
 #include "Animation.h"
 #include "Visualizer.h"
+static Vector2 GetBezierPoint(Vector2 start, Vector2 end, Vector2 control, float t) {
+    float u = 1.0f - t;
+
+    Vector2 p = {
+        u * u * start.x + 2 * u * t * control.x + t * t * end.x,
+        u * u * start.y + 2 * u * t * control.y + t * t * end.y
+    };
+
+    return p;
+}
 
 void InitEntity(MovingEntity *entity, Vector2 startPosition) {
     entity->currentPos = startPosition;
@@ -29,7 +39,7 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
     Vector2 startP = GetNodePosition(u);
     Vector2 endP = GetNodePosition(v);
 
-    int W = 10;
+int W = getEdgeWeight((Graph*)graph, u, v);
 
     if (entity->status == ENTITY_MOVING) {
         if (entity->timer >= 0.3f) {
@@ -42,8 +52,18 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
                 t = 1.0f;
             }
 
-            entity->currentPos.x = startP.x + t * (endP.x - startP.x);
-            entity->currentPos.y = startP.y + t * (endP.y - startP.y);
+            if (u == 2 && v == 5) {
+    Vector2 control = {(startP.x + endP.x) / 2, startP.y - 100};
+    entity->currentPos = GetBezierPoint(startP, endP, control, t);
+}
+else if (u == 1 && v == 3) {
+    Vector2 control = {(startP.x + endP.x) / 2, startP.y + 120};
+    entity->currentPos = GetBezierPoint(startP, endP, control, t);
+}
+else {
+    entity->currentPos.x = startP.x + t * (endP.x - startP.x);
+    entity->currentPos.y = startP.y + t * (endP.y - startP.y);
+}
 
             if (entity->jumpStep >= W) {
                 if (entity->currentPathIndex + 1 == pathLength - 1) {

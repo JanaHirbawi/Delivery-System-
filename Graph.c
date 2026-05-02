@@ -90,4 +90,15 @@ void freeGraph(Graph* g) {
     free(g->adjList);
     free(g);
 }
+int getEdgeWeight(Graph *graph, int from, int to) {
+    Edge *current = graph->adjList[from];
 
+    while (current != NULL) {
+        if (current->to == to) {
+            return current->weight;
+        }
+        current = current->next;
+    }
+
+    return 1; // fallback
+}

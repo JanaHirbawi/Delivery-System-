@@ -23,7 +23,7 @@ Graph* createGraph(int nodes);
 
 // Inserts the directed weighted edge at the beginning of the adjacency list
 void addEdge(Graph* g, int src, int dst, int weight);
-int getEdgeWeight(Graph *graph, int from, int to);
+
 //  free all allocated memory
 void freeGraph(Graph* g);
 

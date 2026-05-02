@@ -2,12 +2,9 @@
 #include "Graph.h"
 #include "InputHandler.h"
 #include "Dijkstra.h"
-
-#ifdef MILESTONE_2_GUI
 #include "raylib.h"
 #include "Visualizer.h"
 #include "Animation.h"
-#endif
 
 int main() {
     Graph *graph = NULL;
@@ -23,9 +20,6 @@ int main() {
 
     dijkstra(graph, source, destination, path, &pathLength, &totalDistance);
 
-#ifdef MILESTONE_2_GUI
-    SetAnimationPath(path, pathLength);
-
     const int screenWidth = 650;
     const int screenHeight = 550;
 
@@ -33,34 +27,77 @@ int main() {
     InitGraphLayout(screenWidth, screenHeight);
     SetTargetFPS(60);
 
+    MovingEntity entity;
+    InitEntity(&entity, GetNodePosition(path[0]));
+
+    bool isPlaying = false;
+
     while (!WindowShouldClose()) {
+        float deltaTime = GetFrameTime();
+
+
+        Rectangle playButton = {screenWidth / 2 - 30, screenHeight - 80, 60, 60};
+
+
+        if (CheckCollisionPointRec(GetMousePosition(), playButton) &&
+            IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+
+            isPlaying = !isPlaying;
+
+            if (isPlaying && !entity.isFinished) {
+                entity.status = ENTITY_MOVING;
+            } else {
+                entity.status = ENTITY_IDLE;
+            }
+        }
+
+
+        if (isPlaying) {
+            UpdateEntity(&entity, path, pathLength, deltaTime, graph);
+
+            if (entity.isFinished) {
+                isPlaying = false;
+                InitEntity(&entity, GetNodePosition(path[0]));
+            }
+        }
+
         BeginDrawing();
 
-        DrawRectangleGradientV(0, 0, screenWidth, screenHeight,
-                               (Color){18, 24, 38, 255},
-                               (Color){45, 62, 90, 255});
+        ClearBackground((Color){20, 25, 40, 255});
 
         drawEdges(graph);
         DrawStaticGraph();
 
-        int currentNode = GetCurrentNode();
-        if (currentNode != -1) {
-            Vector2 pos = GetNodePosition(currentNode);
-            DrawEntityAtSource(pos);
+
+        Vector2 center = {
+            playButton.x + playButton.width / 2,
+            playButton.y + playButton.height / 2
+        };
+
+        float radius = playButton.width / 2 - 5;
+
+        DrawCircleLines(center.x, center.y, radius, RAYWHITE);
+
+        if (!isPlaying) {
+            // PLAY 
+            Vector2 p1 = {center.x - 8, center.y - 12};
+            Vector2 p2 = {center.x - 8, center.y + 12};
+            Vector2 p3 = {center.x + 12, center.y};
+
+            DrawTriangle(p1, p2, p3, RED);
+
+        } else {
+            // STOP 
+            DrawRectangle(center.x - 10, center.y - 12, 6, 24, GREEN);
+            DrawRectangle(center.x + 4, center.y - 12, 6, 24, GREEN);
         }
+
+        DrawMovingEntity(entity);
 
         EndDrawing();
     }
 
     CloseWindow();
-#else
-    printf("Shortest Path:\n");
-    for (int i = 0; i < pathLength; i++) {
-        printf("%d ", path[i]);
-    }
-    printf("\nTotal Distance: %d\n", totalDistance);
-#endif
-
     freeGraph(graph);
     return 0;
 }
