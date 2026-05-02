@@ -42,8 +42,11 @@ int main() {
     CloseWindow();
 
 #else
-    // --- Milestone 1: Terminal Output (Dijkstra) ---
-    dijkstra(graph, source, destination);
+  // --- Milestone 1: Terminal Output (Dijkstra) ---
+    int path[100];
+    int pathLength = 0;
+    int totalDistance = 0; 
+    dijkstra(graph, source, destination, path, &pathLength, &totalDistance);
 #endif
 
     freeGraph(graph);
