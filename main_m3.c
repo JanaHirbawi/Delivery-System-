@@ -30,7 +30,8 @@ int main() {
     MovingEntity entity;
     InitEntity(&entity, GetNodePosition(path[0]));
 
-    bool isPlaying = false;
+bool isPlaying = false;
+float finishTimer = 0.0f;
 
     while (!WindowShouldClose()) {
         float deltaTime = GetFrameTime();
@@ -43,6 +44,7 @@ int main() {
             IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
 
             isPlaying = !isPlaying;
+            finishTimer = 0.0f;
 
             if (isPlaying && !entity.isFinished) {
                 entity.status = ENTITY_MOVING;
@@ -52,14 +54,19 @@ int main() {
         }
 
 
-        if (isPlaying) {
-            UpdateEntity(&entity, path, pathLength, deltaTime, graph);
+       if (isPlaying) {
+    UpdateEntity(&entity, path, pathLength, deltaTime, graph);
 
-            if (entity.isFinished) {
-                isPlaying = false;
-                InitEntity(&entity, GetNodePosition(path[0]));
-            }
+    if (entity.isFinished) {
+        finishTimer += deltaTime;
+
+        if (finishTimer >= 2.0f) {
+            isPlaying = false;
+            finishTimer = 0.0f;
+            InitEntity(&entity, GetNodePosition(path[0]));
         }
+    }
+}
 
         BeginDrawing();
 
