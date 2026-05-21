@@ -1,6 +1,6 @@
 #ifndef OS_PROJECT_GRAPH_H
 #define OS_PROJECT_GRAPH_H
-
+#include <sys/types.h>
 // Represents a single edge in the graph (part of adjacency list)
 typedef struct Edge {
     int weight; // weight (cost) of the edge
@@ -32,6 +32,15 @@ Edge* getNeighbors(Graph* g, int node);
 
 // Prints the graph structure (for debugging purposes)
 void printGraph(Graph* g);
+typedef struct {
+    int id;               
+    int src;              
+    int dst;              
+    int path[100];        
+    int pathLength;     
+    int totalDistance;    
+    pid_t pid;             
+} Traveler;
 
 #endif
 

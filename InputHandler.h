@@ -3,6 +3,6 @@
 
 #include "Graph.h"
 
-int loadGraphFromFile(const char *filename, Graph **graph, int *source, int *destination);
+int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers, int *travelerCount);
 
 #endif

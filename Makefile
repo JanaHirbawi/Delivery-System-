@@ -14,8 +14,8 @@ VISUAL_SRCS = Visualizer.c
 # Source files specific to the Animation (Milestone 3)
 ANIMATION_SRCS = Animation.c
 
-# Default target
-all: milestone1 milestone2 milestone3
+# Default target 
+all: milestone1 milestone2 milestone3 milestone4
 
 # Build Milestone 1: Console-based program
 milestone1:
@@ -26,9 +26,12 @@ milestone2:
 	$(CC) $(CFLAGS) $(COMMON_SRCS) $(VISUAL_SRCS) main.c -DMILESTONE_2_GUI -o sim $(LIBS)
 
 # Build Milestone 3: Animation and Control
-# نستخدم main_m3.c ليكون منفصلاً عن main القديم
 milestone3:
 	$(CC) $(CFLAGS) $(COMMON_SRCS) $(VISUAL_SRCS) $(ANIMATION_SRCS) main_m3.c -o sim $(LIBS)
+
+# Build Milestone 4: Multi-Process and Parent Process 
+milestone4:
+	$(CC) $(CFLAGS) $(COMMON_SRCS) $(VISUAL_SRCS) $(ANIMATION_SRCS) main_m4.c -o sim $(LIBS)
 
 # Clean build artifacts
 clean:

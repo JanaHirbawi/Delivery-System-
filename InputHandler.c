@@ -1,21 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "Graph.h"
 
-int loadGraphFromFile(const char *filename, Graph **graph, int *source, int *destination) {
+int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers, int *travelerCount) {
     FILE *file = fopen(filename, "r");
-
     if (file == NULL) {
         printf("Error: cannot open file\n");
         return 0;
     }
 
-    int N, M;
+    char line[256];
+    int N = 0, M = 0;
 
-    if (fscanf(file, "%d %d", &N, &M) != 2) {
-        printf("Error: invalid file format\n");
-        fclose(file);
-        return 0;
+    
+    while (fgets(line, sizeof(line), file)) {
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
+        if (sscanf(line, "%d %d", &N, &M) == 2) break;
     }
 
     if (N <= 0 || M < 0) {
@@ -26,50 +27,66 @@ int loadGraphFromFile(const char *filename, Graph **graph, int *source, int *des
 
     *graph = createGraph(N);
     if (*graph == NULL) {
-        printf("Error: memory allocation failed\n");
         fclose(file);
         return 0;
     }
 
-    for (int i = 0; i < M; i++) {
+    
+    int edgesRead = 0;
+    while (edgesRead < M && fgets(line, sizeof(line), file)) {
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
+        
         int src, dst, weight;
-
-        if (fscanf(file, "%d %d %d", &src, &dst, &weight) != 3) {
-            printf("Error: invalid edge format\n");
-            freeGraph(*graph);
-            fclose(file);
-            return 0;
+        if (sscanf(line, "%d %d %d", &src, &dst, &weight) == 3) {
+            if (src >= 0 && src < N && dst >= 0 && dst < N && weight >= 0) {
+                addEdge(*graph, src, dst, weight);
+                edgesRead++;
+            } else {
+                printf("Error: invalid edge boundaries\n");
+                freeGraph(*graph);
+                fclose(file);
+                return 0;
+            }
         }
-
-        if (src < 0 || src >= N || dst < 0 || dst >= N) {
-            printf("Error: invalid node index\n");
-            freeGraph(*graph);
-            fclose(file);
-            return 0;
-        }
-
-        if (weight < 0) {
-            printf("Error: negative weights are not allowed\n");
-            freeGraph(*graph);
-            fclose(file);
-            return 0;
-        }
-
-        addEdge(*graph, src, dst, weight);
     }
 
-    if (fscanf(file, "%d %d", source, destination) != 2) {
-        printf("Error: invalid source/destination format\n");
+   
+    int tCount = 0;
+    while (fgets(line, sizeof(line), file)) {
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
+        if (sscanf(line, "%d", &tCount) == 1) break;
+    }
+
+    if (tCount <= 0) {
+        printf("Error: invalid traveler count\n");
         freeGraph(*graph);
         fclose(file);
         return 0;
     }
 
-    if (*source < 0 || *source >= N || *destination < 0 || *destination >= N) {
-        printf("Error: invalid source or destination node\n");
+    *travelerCount = tCount;
+    *travelers = (Traveler *)malloc(tCount * sizeof(Traveler));
+    if (*travelers == NULL) {
+        printf("Error: memory allocation failed for travelers\n");
         freeGraph(*graph);
         fclose(file);
         return 0;
+    }
+
+    
+    int travelersRead = 0;
+    while (travelersRead < tCount && fgets(line, sizeof(line), file)) {
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
+
+        int src, dst;
+        if (sscanf(line, "%d %d", &src, &dst) == 2) {
+            (*travelers)[travelersRead].id = travelersRead;
+            (*travelers)[travelersRead].src = src;
+            (*travelers)[travelersRead].dst = dst;
+            (*travelers)[travelersRead].pathLength = 0;
+            (*travelers)[travelersRead].totalDistance = -1;
+            travelersRead++;
+        }
     }
 
     fclose(file);
