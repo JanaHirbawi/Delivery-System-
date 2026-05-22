@@ -23,7 +23,8 @@ void InitEntity(MovingEntity *entity, Vector2 startPosition);
 void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaTime, void *graph);
 bool HasReachedTarget(MovingEntity entity, Vector2 target);
 
-void DrawMovingEntity(MovingEntity entity);
+
+void DrawMovingEntity(MovingEntity entity, Color color);
 void DrawEntityAtSource(Vector2 sourcePosition);
 void SetAnimationPath(int path[], int length);
 int GetCurrentNode(void);

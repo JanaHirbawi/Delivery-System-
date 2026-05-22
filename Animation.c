@@ -42,7 +42,7 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
 int W = getEdgeWeight((Graph*)graph, u, v);
 
     if (entity->status == ENTITY_MOVING) {
-        if (entity->timer >= 0.3f) {
+        if (entity->timer >= 0.8f) {
             entity->jumpStep++;
             entity->timer = 0.0f;
 
@@ -90,14 +90,14 @@ bool HasReachedTarget(MovingEntity entity, Vector2 target) {
     return entity.currentPos.x == target.x && entity.currentPos.y == target.y;
 }
 
-void DrawMovingEntity(MovingEntity entity) {
-    DrawCircleV(entity.currentPos, 12, (Color){15, 35, 110, 255});
+void DrawMovingEntity(MovingEntity entity , Color color) {
+    DrawCircleV(entity.currentPos, 12, color);
 }
 
 void DrawEntityAtSource(Vector2 sourcePosition) {
     MovingEntity entity;
     InitEntity(&entity, sourcePosition);
-    DrawMovingEntity(entity);
+    DrawMovingEntity(entity, (Color){15,35,110,225});
 }
 static int animationPath[100];
 static int animationPathLength = 0;
