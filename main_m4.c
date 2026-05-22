@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
-
+#include <sys/types.h>
 #include "Graph.h"
 #include "InputHandler.h"
 #include "Dijkstra.h"

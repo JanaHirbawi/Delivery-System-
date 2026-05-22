@@ -10,8 +10,6 @@ static Color EDGE_COLOR = {220, 235, 245, 255};
 static Color ARROW_COLOR = {255, 185, 90, 255};
 static Color GLOW_COLOR = {90, 200, 255, 255};
 
-static Color PATH_COLOR = {255, 220, 80, 255};
-static Color PATH_GLOW = {255, 170, 40, 255};
 
 static Color NODE_BORDER = {245, 245, 245, 255};
 static Color TEXT_SHADOW = {10, 10, 10, 255};

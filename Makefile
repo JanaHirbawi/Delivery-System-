@@ -1,6 +1,6 @@
 # Compiler and Flags
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -I.
+CFLAGS = -Wall -Wextra -std=gnu11 -I.
 
 # Libraries (Raylib and system dependencies)
 LIBS = ./libraylib.a -lGL -lm -lpthread -ldl -lrt -lX11
