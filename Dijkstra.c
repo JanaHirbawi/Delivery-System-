@@ -120,14 +120,6 @@ void dijkstra(Graph *graph, int source, int destination,
         buildPath(parent, source, destination, path, pathLength);
         *totalDistance = dist[destination];
 
-        for (int i = 0; i < *pathLength; i++) {
-            printf("%d", path[i]);
-            if (i < *pathLength - 1) {
-                printf(" -> ");
-            }
-        }
-
-        printf("\n%d\n", *totalDistance);
     }
 
     free(dist);

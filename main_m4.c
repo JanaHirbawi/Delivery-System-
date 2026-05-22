@@ -38,9 +38,9 @@ int main() {
         }
 
         if (pid == 0) {
-            printf("[Traveler %d | PID %d] started\n", travelers[i].id, getpid());
-            pause();
-            exit(0);
+           printf("[%d] started\n", getpid()); 
+           pause();
+           exit(0);
         } else {
             travelers[i].pid = pid;
         }
@@ -93,7 +93,7 @@ int main() {
                        travelers[i].pid);
 
                 kill(travelers[i].pid, SIGTERM);
-                waitpid(travelers[i].pid, NULL, 0);
+                waitpid(travelers[i].pid, NULL,WNOHANG);
                 travelers[i].pid = -1;
             }
         }
