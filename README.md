@@ -42,3 +42,31 @@ This project simulates a delivery system where a delivery entity moves from a **
 - *Speed Logic: Movement is divided into W jumps (based on edge weight), with **300ms* per jump.
 - *Node Waiting: Mandatory **1-second wait* at each intermediate node.
 - *Controls: Interactive **Play/Stop* button and destination arrival notification.
+### Milestone 4: Multiple Processes & Concurrent Travelers
+
+* *Multi-Process System*: Introduced parent and child processes using `fork()`.
+
+* *Parent Process Responsibilities*:
+
+  * Reads the extended input file.
+  * Computes the shortest path for each traveler using Dijkstra’s Algorithm.
+  * Creates a child process for each traveler.
+  * Manages the Raylib GUI and traveler animations.
+  * Sends signals to terminate child processes after route completion.
+  * Waits for all child processes before exiting.
+
+* *Child Process Responsibilities*:
+
+  * Prints its PID immediately after creation.
+  * Remains alive while the traveler is moving.
+  * Does not perform GUI rendering or path calculations.
+
+* *Concurrent Movement*:
+
+  * Multiple travelers move simultaneously on the graph.
+  * Each traveler is displayed using a different color.
+
+| Milestone | Compilation       | Execution         |
+| --------- | ----------------- | ----------------- |
+| **M4**    | `make milestone4` | `./sim input.txt` |
+
