@@ -42,5 +42,14 @@ typedef struct {
     pid_t pid;             
 } Traveler;
 
+typedef struct {
+    pid_t pid;         
+    int travelerId;     
+    int currentNode;    
+    int nextNode;      
+    int isDestination;  
+    int isFinished;    
+} TravelMessage;
+
 #endif
 

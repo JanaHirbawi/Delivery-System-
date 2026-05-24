@@ -13,7 +13,6 @@ int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers,
     char line[256];
     int N = 0, M = 0;
 
-    
     while (fgets(line, sizeof(line), file)) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
         if (sscanf(line, "%d %d", &N, &M) == 2) break;
@@ -31,7 +30,6 @@ int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers,
         return 0;
     }
 
-    
     int edgesRead = 0;
     while (edgesRead < M && fgets(line, sizeof(line), file)) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
@@ -50,7 +48,6 @@ int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers,
         }
     }
 
-   
     int tCount = 0;
     while (fgets(line, sizeof(line), file)) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
@@ -73,7 +70,6 @@ int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers,
         return 0;
     }
 
-    
     int travelersRead = 0;
     while (travelersRead < tCount && fgets(line, sizeof(line), file)) {
         if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
@@ -85,6 +81,11 @@ int loadGraphFromFile(const char *filename, Graph **graph, Traveler **travelers,
             (*travelers)[travelersRead].dst = dst;
             (*travelers)[travelersRead].pathLength = 0;
             (*travelers)[travelersRead].totalDistance = -1;
+            
+          
+            (*travelers)[travelersRead].pid = -1; 
+            memset((*travelers)[travelersRead].path, 0, sizeof((*travelers)[travelersRead].path)); // تصفير الأمان
+            
             travelersRead++;
         }
     }

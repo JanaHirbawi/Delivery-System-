@@ -15,7 +15,7 @@ VISUAL_SRCS = Visualizer.c
 ANIMATION_SRCS = Animation.c
 
 # Default target 
-all: milestone1 milestone2 milestone3 milestone4
+all: milestone1 milestone2 milestone3 milestone4 milestone5
 
 # Build Milestone 1: Console-based program
 milestone1:
@@ -32,6 +32,8 @@ milestone3:
 # Build Milestone 4: Multi-Process and Parent Process 
 milestone4:
 	$(CC) $(CFLAGS) $(COMMON_SRCS) $(VISUAL_SRCS) $(ANIMATION_SRCS) main_m4.c -o sim $(LIBS)
+milestone5:
+	$(CC) $(CFLAGS) $(COMMON_SRCS) $(VISUAL_SRCS) $(ANIMATION_SRCS) main_m5.c -o sim $(LIBS)
 
 # Clean build artifacts
 clean:
