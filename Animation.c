@@ -137,3 +137,78 @@ void MoveToNextPathIndex(void) {
 bool IsPathFinished(void) {
     return currentPathIndex >= animationPathLength - 1;
 }
+void InitTravelerEntities(TravelerEntity entities[], int travelerCount) {
+    Color colors[] = {
+        RED, BLUE, GREEN, ORANGE, PURPLE, PINK, YELLOW
+    };
+
+    for (int i = 0; i < travelerCount; i++) {
+        entities[i].currentPos = (Vector2){0, 0};
+        entities[i].startPos = (Vector2){0, 0};
+        entities[i].targetPos = (Vector2){0, 0};
+
+        entities[i].travelerId = i;
+        entities[i].currentNode = -1;
+        entities[i].nextNode = -1;
+
+        entities[i].timer = 0.0f;
+        entities[i].isMoving = false;
+        entities[i].isFinished = false;
+
+        entities[i].color = colors[i % 7];
+    }
+}
+
+void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg) {
+    int id = msg.travelerId;
+
+    entities[id].travelerId = id;
+    entities[id].currentNode = msg.currentNode;
+    entities[id].nextNode = msg.nextNode;
+
+    entities[id].startPos = GetNodePosition(msg.currentNode);
+    entities[id].currentPos = entities[id].startPos;
+    entities[id].timer = 0.0f;
+
+    if (msg.isDestination || msg.isFinished || msg.nextNode == -1) {
+        entities[id].targetPos = entities[id].startPos;
+        entities[id].isMoving = false;
+        entities[id].isFinished = true;
+    } else {
+        entities[id].targetPos = GetNodePosition(msg.nextNode);
+        entities[id].isMoving = true;
+        entities[id].isFinished = false;
+    }
+}
+
+void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float deltaTime) {
+    for (int i = 0; i < travelerCount; i++) {
+        if (entities[i].isMoving) {
+            entities[i].timer += deltaTime;
+
+            float t = entities[i].timer / 0.8f;
+
+            if (t >= 1.0f) {
+                t = 1.0f;
+                entities[i].isMoving = false;
+            }
+
+            entities[i].currentPos.x =
+                entities[i].startPos.x +
+                (entities[i].targetPos.x - entities[i].startPos.x) * t;
+
+            entities[i].currentPos.y =
+                entities[i].startPos.y +
+                (entities[i].targetPos.y - entities[i].startPos.y)* t;
+        }
+    }
+}
+
+void DrawTravelerEntities(TravelerEntity entities[], int travelerCount) {
+    for (int i = 0; i < travelerCount; i++) {
+        if (entities[i].currentNode != -1) {
+            DrawCircleV(entities[i].currentPos, 12, entities[i].color);
+            DrawCircleLinesV(entities[i].currentPos, 14, WHITE);
+        }
+    }
+}
