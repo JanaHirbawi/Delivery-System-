@@ -70,3 +70,40 @@ This project simulates a delivery system where a delivery entity moves from a **
 | --------- | ----------------- | ----------------- |
 | **M4**    | `make milestone4` | `./sim input.txt` |
 
+ ### Milestone 5: Autonomous Travelers & IPC Communication
+
+* *Autonomous Child Processes*: Each child process independently computes its own shortest path using Dijkstra’s Algorithm.
+
+* *Parent Process Responsibilities*:
+
+  * Reads the graph and travelers from the input file.
+  * Creates pipes for inter-process communication.
+  * Creates a child process for each traveler using `fork()`.
+  * Receives traveler updates through pipes.
+  * Prints all traveler logs in the terminal.
+  * Updates the Raylib GUI according to incoming messages.
+
+* *Child Process Responsibilities*:
+
+  * Computes its own Dijkstra path independently.
+  * Sends updates to the parent after reaching each node.
+  * Sends:
+    * current node
+    * next node
+    * destination status
+  * Does not print logs or render graphics.
+
+* *IPC Mechanism*:
+
+  * Communication between parent and children is implemented using `pipe()`.
+  * Pipes were chosen because they provide a simple and efficient one-way communication mechanism between processes.
+
+* *Real-Time GUI Updates*:
+
+  * Each traveler is visualized independently.
+  * The GUI updates traveler movement according to messages received from child processes.
+  * Each traveler appears with a unique color.
+
+| Milestone | Compilation       | Execution         |
+| --------- | ----------------- | ----------------- |
+| **M5**    | `make milestone5` | `./sim input.txt` |
