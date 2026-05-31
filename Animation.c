@@ -1,5 +1,6 @@
 #include "Animation.h"
 #include "Visualizer.h"
+#include "Graph.h"
 
 static Vector2 GetBezierPoint(Vector2 start, Vector2 end, Vector2 control, float t) {
     float u = 1.0f - t;
@@ -41,9 +42,12 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
     Vector2 endP = GetNodePosition(v);
 
     int W = getEdgeWeight((Graph*)graph, u, v);
+    if (W <= 0) {
+        W = 1;
+    }
 
     if (entity->status == ENTITY_MOVING) {
-        if (entity->timer >= 0.8f) {
+        if (entity->timer >= 0.7f) {
             entity->jumpStep++;
             entity->timer = 0.0f;
 
@@ -156,6 +160,9 @@ void InitTravelerEntities(TravelerEntity entities[], int travelerCount) {
         entities[i].isMoving = false;
         entities[i].isFinished = false;
 
+        entities[i].edgeWeight = 1;
+        entities[i].jumpStep = 0;
+
         entities[i].color = colors[i % 7];
     }
 }
@@ -170,11 +177,13 @@ void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg) {
     entities[id].startPos = GetNodePosition(msg.currentNode);
     entities[id].currentPos = entities[id].startPos;
     entities[id].timer = 0.0f;
+    entities[id].jumpStep = 0;
 
     if (msg.isDestination || msg.isFinished || msg.nextNode == -1) {
         entities[id].targetPos = entities[id].startPos;
         entities[id].isMoving = false;
         entities[id].isFinished = true;
+        entities[id].edgeWeight = 1;
     } else {
         entities[id].targetPos = GetNodePosition(msg.nextNode);
         entities[id].isMoving = true;
@@ -182,45 +191,58 @@ void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg) {
     }
 }
 
-void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float deltaTime) {
+void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float deltaTime, void *graph) {
     for (int i = 0; i < travelerCount; i++) {
         if (entities[i].isMoving) {
             entities[i].timer += deltaTime;
 
-            float t = entities[i].timer / 0.8f;
-
-            if (t >= 1.0f) {
-                t = 1.0f;
-                entities[i].isMoving = false;
-            }
-
             int u = entities[i].currentNode;
             int v = entities[i].nextNode;
 
-            if (u == 2 && v == 5) {
-                Vector2 control = {
-                    (entities[i].startPos.x + entities[i].targetPos.x) / 2,
-                    entities[i].startPos.y - 100
-                };
+            int W = getEdgeWeight((Graph*)graph, u, v);
 
-                entities[i].currentPos =
-                    GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
-            } else if (u == 1 && v == 3) {
-                Vector2 control = {
-                    (entities[i].startPos.x + entities[i].targetPos.x) / 2,
-                    entities[i].startPos.y + 120
-                };
+            if (W <= 0) {
+                W = 1;
+            }
 
-                entities[i].currentPos =
-                    GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
-            } else {
-                entities[i].currentPos.x =
-                    entities[i].startPos.x +
-                    (entities[i].targetPos.x - entities[i].startPos.x) * t;
+            entities[i].edgeWeight = W;
 
-                entities[i].currentPos.y =
-                    entities[i].startPos.y +
-                    (entities[i].targetPos.y - entities[i].startPos.y) * t;
+            if (entities[i].timer >= 0.7f) {
+                entities[i].jumpStep++;
+                entities[i].timer = 0.0f;
+
+                float t = (float)entities[i].jumpStep / W;
+
+                if (t >= 1.0f) {
+                    t = 1.0f;
+                    entities[i].isMoving = false;
+                }
+
+                if (u == 2 && v == 5) {
+                    Vector2 control = {
+                        (entities[i].startPos.x + entities[i].targetPos.x) / 2,
+                        entities[i].startPos.y - 100
+                    };
+
+                    entities[i].currentPos =
+                        GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
+                } else if (u == 1 && v == 3) {
+                    Vector2 control = {
+                        (entities[i].startPos.x + entities[i].targetPos.x) / 2,
+                        entities[i].startPos.y + 120
+                    };
+
+                    entities[i].currentPos =
+                        GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
+                } else {
+                    entities[i].currentPos.x =
+                        entities[i].startPos.x +
+                        (entities[i].targetPos.x - entities[i].startPos.x) * t;
+
+                    entities[i].currentPos.y =
+                        entities[i].startPos.y +
+                        (entities[i].targetPos.y - entities[i].startPos.y) * t;
+                }
             }
         }
     }
