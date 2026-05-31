@@ -107,3 +107,13 @@ This project simulates a delivery system where a delivery entity moves from a **
 | Milestone | Compilation       | Execution         |
 | --------- | ----------------- | ----------------- |
 | **M5**    | `make milestone5` | `./sim input.txt` |
+
+
+### 🔌 Milestone 5: Autonomous Travelers & IPC
+
+* **Autonomous Model:** Each child process independently computes its own shortest path using Dijkstra's Algorithm and dynamically reports its tracking status back to the parent.
+* **Parent Role:** Reads the input file, creates the pipes, forks child processes, reads their real-time updates to refresh the Raylib GUI, and prints synchronized logs to the terminal.
+
+#### Why We Chose Pipes:
+1. **Unidirectional Flow:** Communication is strictly one-way (Multiple Child processes writing updates to a single Parent coordinator). Pipes are the most lightweight tool for this parent-child hierarchy.
+2. **Simplicity over Shared Memory:** Pipes avoid complex synchronization issues, race conditions, and the need for mutexes or semaphores required by Shared Memory.

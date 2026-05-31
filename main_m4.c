@@ -49,7 +49,7 @@ int main() {
     const int screenWidth = 650;
     const int screenHeight = 550;
 
-    InitWindow(screenWidth, screenHeight, "Milestone 4 - Multi Traveler Simulation");
+    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer");
     InitGraphLayout(screenWidth, screenHeight);
     SetTargetFPS(60);
 
@@ -87,25 +87,30 @@ int main() {
 
             DrawMovingEntity(entities[i], travelerColors[i % 6]);
 
+           
             if (entities[i].isFinished && travelers[i].pid > 0) {
                 printf("Traveler %d arrived. Terminating PID %d\n",
                        travelers[i].id,
                        travelers[i].pid);
 
                 kill(travelers[i].pid, SIGTERM);
-                waitpid(travelers[i].pid, NULL,WNOHANG);
-                travelers[i].pid = -1;
+             
+                travelers[i].pid = -1; 
             }
         }
 
         EndDrawing();
     }
 
+   
     for (int i = 0; i < travelerCount; i++) {
-        if (travelers[i].pid > 0) {
+        
+      
+        if (travelers[i].pid != -1) {
             kill(travelers[i].pid, SIGTERM);
-            waitpid(travelers[i].pid, NULL, 0);
         }
+        
+        waitpid(-1, NULL, 0); 
     }
 
     CloseWindow();

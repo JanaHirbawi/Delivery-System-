@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include "raylib.h"
 #include "Graph.h"
@@ -99,10 +100,10 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
 }
 
 static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
-                                     int travelerCount,
-                                     int finished[MAX_TRAVELERS],
-                                     int *finishedCount,
-                                     TravelerEntity entities[MAX_TRAVELERS]) {
+                                    int travelerCount,
+                                    int finished[MAX_TRAVELERS],
+                                    int *finishedCount,
+                                    TravelerEntity entities[MAX_TRAVELERS]) {
     for (int i = 0; i < travelerCount; i++) {
         if (finished[i]) continue;
 
@@ -163,7 +164,7 @@ int main(int argc, char *argv[]) {
     const int screenWidth = 650;
     const int screenHeight = 550;
 
-    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer - Milestone 5");
+    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer ");
     InitGraphLayout(screenWidth, screenHeight);
     SetTargetFPS(60);
 
@@ -194,14 +195,18 @@ int main(int argc, char *argv[]) {
         DrawStaticGraph();
         DrawTravelerEntities(entities, travelerCount);
 
-        if (finishedCount == travelerCount) {
-            DrawText("All travelers finished", 180, 20, 25, GREEN);
-        }
+  
 
         EndDrawing();
     }
 
+    /* Terminate remaining child processes immediately if window closed early */
     for (int i = 0; i < travelerCount; i++) {
+        if (!finished[i]) {
+            kill(pids[i], SIGTERM);
+            close(pipes[i][0]);
+        }
+        /* Clean up process resources securely to prevent zombies */
         waitpid(pids[i], NULL, 0);
     }
 
