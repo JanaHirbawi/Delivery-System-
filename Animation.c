@@ -1,5 +1,6 @@
 #include "Animation.h"
 #include "Visualizer.h"
+
 static Vector2 GetBezierPoint(Vector2 start, Vector2 end, Vector2 control, float t) {
     float u = 1.0f - t;
 
@@ -39,7 +40,7 @@ void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaT
     Vector2 startP = GetNodePosition(u);
     Vector2 endP = GetNodePosition(v);
 
-int W = getEdgeWeight((Graph*)graph, u, v);
+    int W = getEdgeWeight((Graph*)graph, u, v);
 
     if (entity->status == ENTITY_MOVING) {
         if (entity->timer >= 0.8f) {
@@ -53,17 +54,15 @@ int W = getEdgeWeight((Graph*)graph, u, v);
             }
 
             if (u == 2 && v == 5) {
-    Vector2 control = {(startP.x + endP.x) / 2, startP.y - 100};
-    entity->currentPos = GetBezierPoint(startP, endP, control, t);
-}
-else if (u == 1 && v == 3) {
-    Vector2 control = {(startP.x + endP.x) / 2, startP.y + 120};
-    entity->currentPos = GetBezierPoint(startP, endP, control, t);
-}
-else {
-    entity->currentPos.x = startP.x + t * (endP.x - startP.x);
-    entity->currentPos.y = startP.y + t * (endP.y - startP.y);
-}
+                Vector2 control = {(startP.x + endP.x) / 2, startP.y - 100};
+                entity->currentPos = GetBezierPoint(startP, endP, control, t);
+            } else if (u == 1 && v == 3) {
+                Vector2 control = {(startP.x + endP.x) / 2, startP.y + 120};
+                entity->currentPos = GetBezierPoint(startP, endP, control, t);
+            } else {
+                entity->currentPos.x = startP.x + t * (endP.x - startP.x);
+                entity->currentPos.y = startP.y + t * (endP.y - startP.y);
+            }
 
             if (entity->jumpStep >= W) {
                 if (entity->currentPathIndex + 1 == pathLength - 1) {
@@ -90,15 +89,16 @@ bool HasReachedTarget(MovingEntity entity, Vector2 target) {
     return entity.currentPos.x == target.x && entity.currentPos.y == target.y;
 }
 
-void DrawMovingEntity(MovingEntity entity , Color color) {
+void DrawMovingEntity(MovingEntity entity, Color color) {
     DrawCircleV(entity.currentPos, 12, color);
 }
 
 void DrawEntityAtSource(Vector2 sourcePosition) {
     MovingEntity entity;
     InitEntity(&entity, sourcePosition);
-    DrawMovingEntity(entity, (Color){15,35,110,225});
+    DrawMovingEntity(entity, (Color){15, 35, 110, 225});
 }
+
 static int animationPath[100];
 static int animationPathLength = 0;
 static int currentPathIndex = 0;
@@ -137,6 +137,7 @@ void MoveToNextPathIndex(void) {
 bool IsPathFinished(void) {
     return currentPathIndex >= animationPathLength - 1;
 }
+
 void InitTravelerEntities(TravelerEntity entities[], int travelerCount) {
     Color colors[] = {
         RED, BLUE, GREEN, ORANGE, PURPLE, PINK, YELLOW
@@ -193,13 +194,34 @@ void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float 
                 entities[i].isMoving = false;
             }
 
-            entities[i].currentPos.x =
-                entities[i].startPos.x +
-                (entities[i].targetPos.x - entities[i].startPos.x) * t;
+            int u = entities[i].currentNode;
+            int v = entities[i].nextNode;
 
-            entities[i].currentPos.y =
-                entities[i].startPos.y +
-                (entities[i].targetPos.y - entities[i].startPos.y)* t;
+            if (u == 2 && v == 5) {
+                Vector2 control = {
+                    (entities[i].startPos.x + entities[i].targetPos.x) / 2,
+                    entities[i].startPos.y - 100
+                };
+
+                entities[i].currentPos =
+                    GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
+            } else if (u == 1 && v == 3) {
+                Vector2 control = {
+                    (entities[i].startPos.x + entities[i].targetPos.x) / 2,
+                    entities[i].startPos.y + 120
+                };
+
+                entities[i].currentPos =
+                    GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
+            } else {
+                entities[i].currentPos.x =
+                    entities[i].startPos.x +
+                    (entities[i].targetPos.x - entities[i].startPos.x) * t;
+
+                entities[i].currentPos.y =
+                    entities[i].startPos.y +
+                    (entities[i].targetPos.y - entities[i].startPos.y) * t;
+            }
         }
     }
 }

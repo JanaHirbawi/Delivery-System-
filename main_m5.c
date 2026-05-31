@@ -15,6 +15,146 @@
 #define MAX_TRAVELERS 100
 #define PATH_SIZE 100
 
+static void cleanup(Graph *graph, Traveler *travelers) {
+    if (travelers != NULL) {
+        free(travelers);
+    }
+
+    if (graph != NULL) {
+        freeGraph(graph);
+    }
+}
+
+static void sendTravelMessage(int writeFd,
+                              int travelerId,
+                              int currentNode,
+                              int nextNode,
+                              int isDestination,
+                              int isFinished) {
+    TravelMessage msg;
+
+    msg.pid = getpid();
+    msg.travelerId = travelerId;
+    msg.currentNode = currentNode;
+    msg.nextNode = nextNode;
+    msg.isDestination = isDestination;
+    msg.isFinished = isFinished;
+
+    if (write(writeFd, &msg, sizeof(TravelMessage)) == -1) {
+        perror("write");
+    }
+}
+
+static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
+    int path[PATH_SIZE];
+    int pathLength = 0;
+    int totalDistance = 0;
+
+    dijkstra(
+        graph,
+        traveler.src,
+        traveler.dst,
+        path,
+        &pathLength,
+        &totalDistance
+    );
+
+    for (int i = 0; i < pathLength; i++) {
+        int isLastNode = (i == pathLength - 1);
+
+        if (isLastNode) {
+            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1);
+        } else {
+            sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0);
+        }
+
+        usleep(1000000);
+    }
+
+    close(writeFd);
+    exit(0);
+}
+
+static int createChildProcesses(Graph *graph,
+                                Traveler *travelers,
+                                int travelerCount,
+                                int pipes[MAX_TRAVELERS][2],
+                                pid_t pids[MAX_TRAVELERS]) {
+    for (int i = 0; i < travelerCount; i++) {
+        if (pipe(pipes[i]) == -1) {
+            perror("pipe");
+            return 0;
+        }
+
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            perror("fork");
+            return 0;
+        }
+
+        if (pid == 0) {
+            close(pipes[i][0]);
+            runChildProcess(graph, travelers[i], pipes[i][1]);
+        }
+
+        pids[i] = pid;
+        travelers[i].pid = pid;
+
+        close(pipes[i][1]);
+
+        int flags = fcntl(pipes[i][0], F_GETFL, 0);
+        if (flags == -1) {
+            perror("fcntl get");
+            return 0;
+        }
+
+        if (fcntl(pipes[i][0], F_SETFL, flags | O_NONBLOCK) == -1) {
+            perror("fcntl set");
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
+                                     int travelerCount,
+                                     int finished[MAX_TRAVELERS],
+                                     int *finishedCount,
+                                     TravelerEntity entities[MAX_TRAVELERS]) {
+    for (int i = 0; i < travelerCount; i++) {
+        if (finished[i]) {
+            continue;
+        }
+
+        TravelMessage msg;
+        ssize_t bytesRead = read(pipes[i][0], &msg, sizeof(TravelMessage));
+
+        if (bytesRead == sizeof(TravelMessage)) {
+            if (msg.isDestination) {
+                printf("[PID=%d] arrived at node %d | DESTINATION\n",
+                       msg.pid,
+                       msg.currentNode);
+            } else {
+                printf("[PID=%d] arrived at node %d | next node: %d\n",
+                       msg.pid,
+                       msg.currentNode,
+                       msg.nextNode);
+            }
+
+            UpdateEntityFromMessage(entities, msg);
+
+            if (msg.isFinished) {
+                printf("[PID=%d] finished\n", msg.pid);
+                finished[i] = 1;
+                (*finishedCount)++;
+                close(pipes[i][0]);
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <input_file>\n", argv[0]);
@@ -32,8 +172,7 @@ int main(int argc, char *argv[]) {
 
     if (travelerCount > MAX_TRAVELERS) {
         printf("Too many travelers. Maximum is %d\n", MAX_TRAVELERS);
-        free(travelers);
-        freeGraph(graph);
+        cleanup(graph, travelers);
         return 1;
     }
 
@@ -41,73 +180,9 @@ int main(int argc, char *argv[]) {
     pid_t pids[MAX_TRAVELERS];
     int finished[MAX_TRAVELERS] = {0};
 
-    for (int i = 0; i < travelerCount; i++) {
-        if (pipe(pipes[i]) == -1) {
-            perror("pipe");
-            free(travelers);
-            freeGraph(graph);
-            return 1;
-        }
-
-        pid_t pid = fork();
-
-        if (pid < 0) {
-            perror("fork");
-            free(travelers);
-            freeGraph(graph);
-            return 1;
-        }
-
-        if (pid == 0) {
-            close(pipes[i][0]);
-
-            int path[PATH_SIZE];
-            int pathLength = 0;
-            int totalDistance = 0;
-
-            dijkstra(
-                graph,
-                travelers[i].src,
-                travelers[i].dst,
-                path,
-                &pathLength,
-                &totalDistance
-            );
-
-            for (int j = 0; j < pathLength; j++) {
-                TravelMessage msg;
-
-                msg.pid = getpid();
-                msg.travelerId = travelers[i].id;
-                msg.currentNode = path[j];
-
-                if (j == pathLength - 1) {
-                    msg.nextNode = -1;
-                    msg.isDestination = 1;
-                    msg.isFinished = 1;
-                } else {
-                    msg.nextNode = path[j + 1];
-                    msg.isDestination = 0;
-                    msg.isFinished = 0;
-                }
-
-                write(pipes[i][1], &msg, sizeof(TravelMessage));
-                usleep(1000000);
-            }
-
-            close(pipes[i][1]);
-            free(travelers);
-            freeGraph(graph);
-            exit(0);
-        }
-
-        pids[i] = pid;
-        travelers[i].pid = pid;
-
-        close(pipes[i][1]);
-
-        int flags = fcntl(pipes[i][0], F_GETFL, 0);
-        fcntl(pipes[i][0], F_SETFL, flags | O_NONBLOCK);
+    if (!createChildProcesses(graph, travelers, travelerCount, pipes, pids)) {
+        cleanup(graph, travelers);
+        return 1;
     }
 
     const int screenWidth = 650;
@@ -126,36 +201,13 @@ int main(int argc, char *argv[]) {
         float deltaTime = GetFrameTime();
 
         if (finishedCount < travelerCount) {
-            for (int i = 0; i < travelerCount; i++) {
-                if (finished[i]) {
-                    continue;
-                }
-
-                TravelMessage msg;
-                ssize_t bytesRead = read(pipes[i][0], &msg, sizeof(TravelMessage));
-
-                if (bytesRead == sizeof(TravelMessage)) {
-                    if (msg.isDestination) {
-                        printf("[PID=%d] arrived at node %d | DESTINATION\n",
-                               msg.pid,
-                               msg.currentNode);
-                    } else {
-                        printf("[PID=%d] arrived at node %d | next node: %d\n",
-                               msg.pid,
-                               msg.currentNode,
-                               msg.nextNode);
-                    }
-
-                    UpdateEntityFromMessage(entities, msg);
-
-                    if (msg.isFinished) {
-                        printf("[PID=%d] finished\n", msg.pid);
-                        finished[i] = 1;
-                        finishedCount++;
-                        close(pipes[i][0]);
-                    }
-                }
-            }
+            readMessagesFromChildren(
+                pipes,
+                travelerCount,
+                finished,
+                &finishedCount,
+                entities
+            );
         }
 
         UpdateTravelerEntities(entities, travelerCount, deltaTime);
@@ -186,8 +238,7 @@ int main(int argc, char *argv[]) {
 
     CloseWindow();
 
-    free(travelers);
-    freeGraph(graph);
+    cleanup(graph, travelers);
 
     return 0;
 }
