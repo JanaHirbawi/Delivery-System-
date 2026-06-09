@@ -117,7 +117,7 @@ void SetAnimationPath(int path[], int length) {
 }
 
 int GetCurrentNode(void) {
-    if (animationPathLength == 0) {
+    if (animationPathLength == 0 || currentPathIndex >= animationPathLength) {
         return -1;
     }
 
@@ -163,6 +163,8 @@ void InitTravelerEntities(TravelerEntity entities[], int travelerCount) {
         entities[i].edgeWeight = 1;
         entities[i].jumpStep = 0;
 
+        entities[i].status = ENTITY_IDLE;
+
         entities[i].color = colors[i % 7];
     }
 }
@@ -174,20 +176,59 @@ void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg) {
     entities[id].currentNode = msg.currentNode;
     entities[id].nextNode = msg.nextNode;
 
-    entities[id].startPos = GetNodePosition(msg.currentNode);
-    entities[id].currentPos = entities[id].startPos;
-    entities[id].timer = 0.0f;
-    entities[id].jumpStep = 0;
+    if (msg.status == STATUS_WAITING) {
+        entities[id].startPos = GetNodePosition(msg.currentNode);
+        entities[id].currentPos = (Vector2){
+            entities[id].startPos.x + 42,
+            entities[id].startPos.y + 42
+        };
 
-    if (msg.isDestination || msg.isFinished || msg.nextNode == -1) {
-        entities[id].targetPos = entities[id].startPos;
+        entities[id].isMoving = false;
+        entities[id].isFinished = false;
+        entities[id].status = ENTITY_WAITING;
+        return;
+    }
+
+    if (msg.status == STATUS_ENTERED) {
+        entities[id].startPos = GetNodePosition(msg.currentNode);
+        entities[id].currentPos = entities[id].startPos;
+        entities[id].timer = 0.0f;
+        entities[id].jumpStep = 0;
+
+        entities[id].status = ENTITY_IDLE;
+        entities[id].isMoving = false;
+        entities[id].isFinished = false;
+        return;
+    }
+
+    if (msg.status == STATUS_LEAVING) {
+        entities[id].startPos = GetNodePosition(msg.currentNode);
+        entities[id].currentPos = entities[id].startPos;
+        entities[id].timer = 0.0f;
+        entities[id].jumpStep = 0;
+
+        if (msg.nextNode == -1 || msg.isDestination) {
+            entities[id].targetPos = entities[id].startPos;
+            entities[id].isMoving = false;
+            entities[id].isFinished = true;
+            entities[id].status = ENTITY_IDLE;
+            entities[id].edgeWeight = 1;
+        } else {
+            entities[id].targetPos = GetNodePosition(msg.nextNode);
+            entities[id].isMoving = true;
+            entities[id].isFinished = false;
+            entities[id].status = ENTITY_MOVING;
+        }
+
+        return;
+    }
+
+    if (msg.status == STATUS_FINISHED || msg.isFinished) {
         entities[id].isMoving = false;
         entities[id].isFinished = true;
-        entities[id].edgeWeight = 1;
-    } else {
-        entities[id].targetPos = GetNodePosition(msg.nextNode);
-        entities[id].isMoving = true;
-        entities[id].isFinished = false;
+        entities[id].currentNode = -1;
+        entities[id].status = ENTITY_IDLE;
+        return;
     }
 }
 
@@ -251,8 +292,14 @@ void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float 
 void DrawTravelerEntities(TravelerEntity entities[], int travelerCount) {
     for (int i = 0; i < travelerCount; i++) {
         if (entities[i].currentNode != -1) {
-            DrawCircleV(entities[i].currentPos, 12, entities[i].color);
-            DrawCircleLinesV(entities[i].currentPos, 14, WHITE);
+            if (entities[i].status == ENTITY_WAITING) {
+                DrawCircleV(entities[i].currentPos, 10, YELLOW);
+                DrawCircleLinesV(entities[i].currentPos, 12, WHITE);
+                DrawText("WAIT", entities[i].currentPos.x + 12, entities[i].currentPos.y - 8, 12, YELLOW);
+            } else {
+                DrawCircleV(entities[i].currentPos, 12, entities[i].color);
+                DrawCircleLinesV(entities[i].currentPos, 14, WHITE);
+            }
         }
     }
 }

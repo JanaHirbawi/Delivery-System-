@@ -35,21 +35,25 @@ typedef struct {
 
     int edgeWeight;
     int jumpStep;
-
+ EntityStatus status;
     Color color;
 } TravelerEntity;
 
+/* ----------- Traveler functions ----------- */
 void InitTravelerEntities(TravelerEntity entities[], int travelerCount);
 void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg);
 void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float deltaTime, void *graph);
 void DrawTravelerEntities(TravelerEntity entities[], int travelerCount);
 
+/* ----------- Moving entity functions ----------- */
 void InitEntity(MovingEntity *entity, Vector2 startPosition);
 void UpdateEntity(MovingEntity *entity, int path[], int pathLength, float deltaTime, void *graph);
 bool HasReachedTarget(MovingEntity entity, Vector2 target);
 
 void DrawMovingEntity(MovingEntity entity, Color color);
 void DrawEntityAtSource(Vector2 sourcePosition);
+
+/* ----------- Path control ----------- */
 void SetAnimationPath(int path[], int length);
 int GetCurrentNode(void);
 int GetNextNode(void);
