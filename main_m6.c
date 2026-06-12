@@ -101,14 +101,19 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
         sleep(1);
 
         sendTravelMessage(writeFd, traveler.id, currNode, nextNode,
-                          isDest, 0, STATUS_LEAVING);
+                  isDest, 0, STATUS_LEAVING);
 
-        sem_post(sem);
+/* Give the GUI time to draw the traveler outside the node */
+
+usleep(700000);
+sem_post(sem);
+
+
         sem_close(sem);
 
         if (nextNode != -1) {
             int weight = getEdgeWeight(graph, currNode, nextNode);
-            usleep(weight * 300000);
+            usleep(weight * 1000000);
         }
     }
 
@@ -117,7 +122,6 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
 
     exit(0);
 }
-
 static int readMessagesFromChildren(int pipes[][2], int travelerCount, int finished[],
                                     int *finishedCount, TravelerEntity entities[]) {
     int activity = 0;
