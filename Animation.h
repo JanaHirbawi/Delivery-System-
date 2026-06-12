@@ -59,5 +59,13 @@ int GetCurrentNode(void);
 int GetNextNode(void);
 void MoveToNextPathIndex(void);
 bool IsPathFinished(void);
+void UpdateTravelerEntitiesM5(TravelerEntity entities[],
+                              int travelerCount,
+                              float deltaTime,
+                              void *graph);
 
+void UpdateTravelerEntitiesM6(TravelerEntity entities[],
+                              int travelerCount,
+                              float deltaTime,
+                              void *graph);
 #endif

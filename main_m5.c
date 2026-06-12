@@ -32,6 +32,14 @@ static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
     msg.isDestination = isDestination;
     msg.isFinished = isFinished;
 
+    if (isFinished) {
+        msg.status = STATUS_FINISHED;
+    } else if (isDestination) {
+        msg.status = STATUS_ENTERED;
+    } else {
+        msg.status = STATUS_LEAVING;
+    }
+
     if (write(writeFd, &msg, sizeof(TravelMessage)) == -1) {
         perror("write");
     }
@@ -48,14 +56,20 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
         int isLastNode = (i == pathLength - 1);
 
         if (isLastNode) {
-            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1);
+            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 0);
+            sleep(1);
+            sendTravelMessage(writeFd, traveler.id, -1, -1, 1, 1);
         } else {
             sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0);
 
+         
+         
             int weight = getEdgeWeight(graph, path[i], path[i + 1]);
-            if (weight <= 0) weight = 1;
+if (weight <= 0) {
+    weight = 1;
+}
 
-            usleep((weight + 1) * 700000);
+usleep((weight + 1) * 700000);
         }
     }
 
@@ -89,7 +103,9 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
         close(pipes[i][1]);
 
         int flags = fcntl(pipes[i][0], F_GETFL, 0);
-        if (flags == -1) return 0;
+        if (flags == -1) {
+            return 0;
+        }
 
         if (fcntl(pipes[i][0], F_SETFL, flags | O_NONBLOCK) == -1) {
             return 0;
@@ -100,17 +116,30 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
 }
 
 static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
-                                    int travelerCount,
-                                    int finished[MAX_TRAVELERS],
-                                    int *finishedCount,
-                                    TravelerEntity entities[MAX_TRAVELERS]) {
+                                     int travelerCount,
+                                     int finished[MAX_TRAVELERS],
+                                     int *finishedCount,
+                                     TravelerEntity entities[MAX_TRAVELERS]) {
     for (int i = 0; i < travelerCount; i++) {
-        if (finished[i]) continue;
+        if (finished[i]) {
+            continue;
+        }
 
         TravelMessage msg;
         ssize_t bytesRead = read(pipes[i][0], &msg, sizeof(TravelMessage));
 
         if (bytesRead == sizeof(TravelMessage)) {
+            if (msg.status == STATUS_FINISHED || msg.isFinished) {
+                printf("[PID=%d] finished\n", msg.pid);
+
+                UpdateEntityFromMessage(entities, msg);
+
+                finished[i] = 1;
+                (*finishedCount)++;
+                close(pipes[i][0]);
+                continue;
+            }
+
             if (msg.isDestination) {
                 printf("[PID=%d] arrived at node %d | DESTINATION\n",
                        msg.pid, msg.currentNode);
@@ -120,13 +149,6 @@ static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
             }
 
             UpdateEntityFromMessage(entities, msg);
-
-            if (msg.isFinished) {
-                printf("[PID=%d] finished\n", msg.pid);
-                finished[i] = 1;
-                (*finishedCount)++;
-                close(pipes[i][0]);
-            }
         }
     }
 }
@@ -164,7 +186,7 @@ int main(int argc, char *argv[]) {
     const int screenWidth = 650;
     const int screenHeight = 550;
 
-    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer ");
+    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer - Milestone 5");
     InitGraphLayout(screenWidth, screenHeight);
     SetTargetFPS(60);
 
@@ -180,7 +202,7 @@ int main(int argc, char *argv[]) {
             readMessagesFromChildren(pipes, travelerCount, finished, &finishedCount, entities);
         }
 
-        UpdateTravelerEntities(entities, travelerCount, deltaTime, graph);
+UpdateTravelerEntitiesM5(entities, travelerCount, deltaTime, graph);
 
         BeginDrawing();
 
@@ -195,18 +217,15 @@ int main(int argc, char *argv[]) {
         DrawStaticGraph();
         DrawTravelerEntities(entities, travelerCount);
 
-  
-
         EndDrawing();
     }
 
-    /* Terminate remaining child processes immediately if window closed early */
     for (int i = 0; i < travelerCount; i++) {
         if (!finished[i]) {
             kill(pids[i], SIGTERM);
             close(pipes[i][0]);
         }
-        /* Clean up process resources securely to prevent zombies */
+
         waitpid(pids[i], NULL, 0);
     }
 

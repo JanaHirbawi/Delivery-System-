@@ -229,7 +229,7 @@ int main() {
                                      &finishedCount, entities);
         }
 
-        UpdateTravelerEntities(entities, travelerCount, deltaTime, graph);
+UpdateTravelerEntitiesM6(entities, travelerCount, deltaTime, graph);
 
         BeginDrawing();
 

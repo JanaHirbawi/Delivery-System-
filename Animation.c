@@ -254,7 +254,75 @@ void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg) {
     }
 }
 
-void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float deltaTime, void *graph) {
+void UpdateTravelerEntitiesM5(TravelerEntity entities[], int travelerCount, float deltaTime, void *graph) {
+    for (int i = 0; i < travelerCount; i++) {
+        if (!entities[i].isMoving) {
+            continue;
+        }
+
+        entities[i].timer += deltaTime;
+
+        int u = entities[i].currentNode;
+        int v = entities[i].nextNode;
+
+        int W = getEdgeWeight((Graph*)graph, u, v);
+        if (W <= 0) {
+            W = 1;
+        }
+
+        entities[i].edgeWeight = W;
+
+        if (entities[i].timer >= 1.0f) {
+            entities[i].jumpStep++;
+            entities[i].timer = 0.0f;
+
+            float t = (float)entities[i].jumpStep / W;
+
+            if (t >= 1.0f) {
+                t = 1.0f;
+            }
+
+            if (u == 2 && v == 5) {
+                Vector2 control = {
+                    (entities[i].startPos.x + entities[i].targetPos.x) / 2,
+                    entities[i].startPos.y - 100
+                };
+
+                entities[i].currentPos =
+                    GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
+            } else if (u == 1 && v == 3) {
+                Vector2 control = {
+                    (entities[i].startPos.x + entities[i].targetPos.x) / 2,
+                    entities[i].startPos.y + 120
+                };
+
+                entities[i].currentPos =
+                    GetBezierPoint(entities[i].startPos, entities[i].targetPos, control, t);
+            } else {
+                entities[i].currentPos.x =
+                    entities[i].startPos.x +
+                    (entities[i].targetPos.x - entities[i].startPos.x) * t;
+
+                entities[i].currentPos.y =
+                    entities[i].startPos.y +
+                    (entities[i].targetPos.y - entities[i].startPos.y) * t;
+            }
+
+            if (t >= 1.0f) {
+                entities[i].isMoving = false;
+                entities[i].currentNode = v;
+                entities[i].nextNode = -1;
+
+                entities[i].currentPos = entities[i].targetPos;
+                entities[i].status = ENTITY_IDLE;
+                entities[i].jumpStep = 0;
+                entities[i].timer = 0.0f;
+            }
+        }
+    }
+}
+
+void UpdateTravelerEntitiesM6(TravelerEntity entities[], int travelerCount, float deltaTime, void *graph) {
     for (int i = 0; i < travelerCount; i++) {
         if (!entities[i].isMoving) {
             continue;
@@ -321,14 +389,18 @@ void UpdateTravelerEntities(TravelerEntity entities[], int travelerCount, float 
         }
     }
 }
-
 void DrawTravelerEntities(TravelerEntity entities[], int travelerCount) {
     for (int i = 0; i < travelerCount; i++) {
         if (entities[i].currentNode != -1) {
             if (entities[i].status == ENTITY_WAITING) {
-                DrawCircleV(entities[i].currentPos, 10, YELLOW);
-                DrawCircleLinesV(entities[i].currentPos, 12, WHITE);
-                DrawText("WAIT", entities[i].currentPos.x + 12, entities[i].currentPos.y - 8, 12, YELLOW);
+                DrawCircleV(entities[i].currentPos, 9, entities[i].color);
+                DrawCircleLinesV(entities[i].currentPos, 11, WHITE);
+
+                DrawText("WAIT",
+                         entities[i].currentPos.x + 10,
+                         entities[i].currentPos.y - 7,
+                         11,
+                         WHITE);
             } else {
                 DrawCircleV(entities[i].currentPos, 12, entities[i].color);
                 DrawCircleLinesV(entities[i].currentPos, 14, WHITE);
