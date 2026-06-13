@@ -63,13 +63,49 @@ This project simulates a delivery system where a delivery entity moves from a **
 - **IPC Mechanism (Why We Chose Pipes):**
   1. *Unidirectional Flow:* Communication is strictly one-way (Multiple Child processes writing updates to a single Parent coordinator). Pipes are the most lightweight tool for this parent-child hierarchy.
   2. *Simplicity over Shared Memory:* Pipes avoid complex synchronization issues, race conditions, and the need for global access controls required by Shared Memory.
+3. Real-Time Updates:
+   Each child process sends node arrival updates through its dedicated pipe, while the parent process receives the messages, updates the GUI, and prints execution logs.
 
-### Milestone 6: Advanced OS Resource Management & Synchronization
-- **Overview:** This final milestone simulates a real-world synchronized delivery or traffic network. Each traveler is a standalone living entity (`Child Process`) with its own lifecycle, driving its path autonomously. The main challenge solved here is **Resource Management**: ensuring that multiple independent processes navigate through the same shared graph infrastructure in real-time without collisions or software crashes.
-- **Synchronization Mechanism (POSIX Semaphores):**
-  - **Chosen Mechanism:** POSIX Semaphores (`sem_t`) mapped per graph node.
-  - **Why this choice?** Graph nodes represent shared critical resources (hubs) that cannot fit overlapping travelers.
-- **How it works:**
-  1. A traveler process must execute `sem_wait()` before entering a node. If occupied, the OS blocks the process, and the GUI renders it in a circular queue around the node (`STATUS_WAITING`).
-  2. To avoid visual overlapping on edges, the traveler holds the semaphore lock **while traveling on the edge** (`usleep`).
-  3. Only upon reaching the next threshold does it execute `sem_post()` to wake up the next waiting process safely, preventing any Race Conditions or graphical glitches.
+## Milestone 6 – Node Synchronization
+### Synchronization Mechanism
+
+In this milestone we added synchronization between traveler processes to ensure that no more than one traveler can stay inside the same node at the same time.
+
+We used POSIX named semaphores (`sem_open`, `sem_wait`, `sem_post`) and created one semaphore for each node in the graph.
+
+Each traveler process performs the following steps:
+
+1. Arrives at a node and sends a WAITING message to the parent process.
+2. Calls `sem_wait()` on the semaphore of that node.
+3. Enters the node and sends an ENTERED message.
+4. Remains inside the node for one full second (critical section).
+5. Sends a LEAVING message.
+6. Releases the node using `sem_post()`.
+7. Continues to the next node.
+
+This guarantees mutual exclusion and prevents multiple travelers from occupying the same node simultaneously.
+
+### IPC Mechanism
+
+Communication between child processes and the parent process is implemented using Pipes.
+Each child process sends status messages to the parent process:
+
+* WAITING
+* ENTERED
+* LEAVING
+* FINISHED
+
+The parent process receives these messages, updates the GUI, and prints the execution log to the terminal.
+
+### GUI Visualization
+
+Travelers waiting for a node are displayed with a WAIT indicator near the node.
+Travelers inside or moving between nodes are displayed using their assigned colors.
+
+### Correctness
+
+* At most one traveler can be inside a node at any time.
+* Waiting travelers remain outside the node until access is granted.
+* Every waiting traveler eventually enters the node (no starvation).
+* The GUI reflects waiting and movement states during execution.
+

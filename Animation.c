@@ -1,6 +1,7 @@
 #include "Animation.h"
 #include "Visualizer.h"
 #include "Graph.h"
+#include <math.h>
 
 static Vector2 GetBezierPoint(Vector2 start, Vector2 end, Vector2 control, float t) {
     float u = 1.0f - t;
@@ -13,27 +14,6 @@ static Vector2 GetBezierPoint(Vector2 start, Vector2 end, Vector2 control, float
     return p;
 }
 
-static Vector2 GetWaitingPosition(int node, int id) {
-    Vector2 p = GetNodePosition(node);
-
-    Vector2 offsets[] = {
-        {0, -38},
-        {38, 0},
-        {-38, 0},
-        {0, 38},
-        {28, -28},
-        {-28, -28},
-        {28, 28},
-        {-28, 28}
-    };
-
-    int k = id % 8;
-
-    p.x += offsets[k].x;
-    p.y += offsets[k].y;
-
-    return p;
-}
 
 void InitEntity(MovingEntity *entity, Vector2 startPosition) {
     entity->currentPos = startPosition;
@@ -199,8 +179,7 @@ void UpdateEntityFromMessage(TravelerEntity entities[], TravelMessage msg) {
     entities[id].nextNode = msg.nextNode;
 
     if (msg.status == STATUS_WAITING) {
-        entities[id].currentPos = GetWaitingPosition(msg.currentNode, id);
-
+      
         entities[id].isMoving = false;
         entities[id].isFinished = false;
         entities[id].status = ENTITY_WAITING;
@@ -377,11 +356,21 @@ void UpdateTravelerEntitiesM6(TravelerEntity entities[], int travelerCount, floa
             }
 
             if (t >= 1.0f) {
-                entities[i].isMoving = false;
+             entities[i].isMoving = false;
                 entities[i].currentNode = v;
                 entities[i].nextNode = -1;
 
-                entities[i].currentPos = GetWaitingPosition(v, i);
+                Vector2 nodePos = GetNodePosition(v);
+                Vector2 incomingDir = { nodePos.x - entities[i].startPos.x, nodePos.y - entities[i].startPos.y };
+                
+                float length = sqrtf(incomingDir.x * incomingDir.x + incomingDir.y * incomingDir.y);
+                if (length > 0) {
+                    entities[i].currentPos.x = nodePos.x - (incomingDir.x / length) * 28.0f;
+                    entities[i].currentPos.y = nodePos.y - (incomingDir.y / length) * 28.0f;
+                } else {
+                    entities[i].currentPos = nodePos;
+                }
+
                 entities[i].status = ENTITY_WAITING;
                 entities[i].jumpStep = 0;
                 entities[i].timer = 0.0f;
