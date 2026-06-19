@@ -62,19 +62,23 @@ void readMessagesFromChildren(int pipes[][2], int travelerCount, int finished[],
 
 int main(int argc, char *argv[]) {
     
-    /* 🛠️ BATLOUL'S TASK: Start Here 
-     * =======================================================================
-     * TODO: Parse command line arguments matching exactly the professor's PDF layout:
-     * ./sim -schd <policy> <file_name>
-     * * Your task is to code the following steps:
-     * 1. Check if argc is correct (should expect 4 arguments).
-     * 2. Verify that argv[1] is exactly "-schd".
-     * 3. Extract the policy from argv[2] ("fcfs" or "sjf") and set the global variable 'schedulerType'.
-     * 4. Extract the filename string from argv[3] and assign it to the 'filename' variable defined below.
-     * =======================================================================
-     */
-     
-    char *filename = "input.txt"; /* Default value to allow compilation for the team until Batloul overwrites it */
+    if (argc != 4 || strcmp(argv[1], "-schd") != 0) {
+        printf("Usage: ./sim -schd <fcfs|sjf> <file_name>\n");
+        return 1;
+    }
+
+    if (strcmp(argv[2], "fcfs") == 0) {
+        schedulerType = SCHED_FCFS;
+    }
+    else if (strcmp(argv[2], "sjf") == 0) {
+        schedulerType = SCHED_SJF;
+    }
+    else {
+        printf("Usage: ./sim -schd <fcfs|sjf> <file_name>\n");
+        return 1;
+    }
+
+    char *filename = argv[3];
 
     Graph *graph = NULL;
     Traveler *travelers = NULL;
