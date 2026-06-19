@@ -15,7 +15,7 @@ VISUAL_SRCS = Visualizer.c
 ANIMATION_SRCS = Animation.c
 
 # Default target 
-all: milestone1 milestone2 milestone3 milestone4 milestone5 milestone6
+all: milestone1 milestone2 milestone3 milestone4 milestone5 milestone6 milestone7
 
 # Build Milestone 1: Console-based program
 milestone1:
@@ -37,7 +37,10 @@ milestone5:
 # Build Milestone 6: Multi-Process Synchronization 
 milestone6:
 	$(CC) $(CFLAGS) $(COMMON_SRCS) $(VISUAL_SRCS) $(ANIMATION_SRCS) main_m6.c -o sim $(LIBS)
+# Build Milestone 7: Centralized CPU Scheduling Simulator (As requested)
+milestone7: Graph.c Dijkstra.c InputHandler.c Visualizer.c Animation.c Scheduler.c main_m7.c
+	$(CC) $(CFLAGS) Graph.c Dijkstra.c InputHandler.c Visualizer.c Animation.c Scheduler.c main_m7.c -o sim $(LIBS)
 
 # Clean build artifacts
 clean:
-	rm -f dijkstra sim
+	rm -f dijkstra sim 
