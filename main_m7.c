@@ -19,42 +19,113 @@
 #define PATH_SIZE 100
 
 /* Function prototypes for process handling and message routing */
-void runChildProcess(Graph *graph, Traveler traveler, int writePipe);
+void runChildProcess(Graph *graph, Traveler traveler, int writePipe, int readPipe);
 static void cleanup(Graph *graph, Traveler *travelers);
 
+static int findTravelerIndex(Traveler *travelers, int travelerCount, int travelerId) {
+    for (int i = 0; i < travelerCount; i++) {
+        if (travelers[i].id == travelerId) {
+            return i;
+        }
+    }
+
+    if (travelerId >= 0 && travelerId < travelerCount) {
+        return travelerId;
+    }
+
+    return -1;
+}
+
+static int calculateRemainingDistance(Graph *graph, int currentNode, int destinationNode) {
+    int path[PATH_SIZE];
+    int pathLength = 0;
+    int totalDistance = 0;
+
+    dijkstra(graph, currentNode, destinationNode, path, &pathLength, &totalDistance);
+
+    return totalDistance;
+}
+
+static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
+                              int nextNode, int isDestination, int isFinished,
+                              TravelerStatus status) {
+    TravelMessage msg;
+
+    msg.pid = getpid();
+    msg.travelerId = travelerId;
+    msg.currentNode = currentNode;
+    msg.nextNode = nextNode;
+    msg.isDestination = isDestination;
+    msg.isFinished = isFinished;
+    msg.status = status;
+
+    if (write(writeFd, &msg, sizeof(TravelMessage)) == -1) {
+        perror("write");
+    }
+}
+
 /* * readMessagesFromChildren: Centralized Parent function to read status updates from pipes.
- * NOTE: JANNAT will expand this protocol to support WAITING / GO / LEAVING handshake signals.
+ * JANNAT: handles WAITING / GO / LEAVING handshake signals.
  */
-void readMessagesFromChildren(int pipes[][2], int travelerCount, int finished[], 
-                              int *finishedCount, TravelerEntity entities[]) {
-    char buffer[256];
+void readMessagesFromChildren(int childToParent[][2],
+                              int travelerCount,
+                              int finished[],
+                              int *finishedCount,
+                              TravelerEntity entities[],
+                              Graph *graph,
+                              Traveler *travelers) {
     for (int i = 0; i < travelerCount; i++) {
         if (finished[i]) continue;
 
-        /* Non-blocking read check on child pipes */
-        int flags = fcntl(pipes[i][0], F_GETFL, 0);
-        fcntl(pipes[i][0], F_SETFL, flags | O_NONBLOCK);
+        int flags = fcntl(childToParent[i][0], F_GETFL, 0);
+        fcntl(childToParent[i][0], F_SETFL, flags | O_NONBLOCK);
 
-        int bytesRead = read(pipes[i][0], buffer, sizeof(buffer) - 1);
-        if (bytesRead > 0) {
-            buffer[bytesRead] = '\0';
-            
-            int id, u, v;
-            float t;
-            /* Parse standard animation tracking message */
-            if (sscanf(buffer, "MOVE %d %d %d %f", &id, &u, &v, &t) == 4) {
-                entities[id].currentNode = u;
-                entities[id].nextNode = v;
-                entities[id].timer = t;
-                entities[id].isMoving = true;
-                entities[id].status = ENTITY_MOVING;
+        TravelMessage msg;
+        ssize_t bytesRead = read(childToParent[i][0], &msg, sizeof(TravelMessage));
+
+        if (bytesRead == sizeof(TravelMessage)) {
+            if (msg.status == STATUS_WAITING) {
+                int travelerIndex = findTravelerIndex(travelers, travelerCount, msg.travelerId);
+                int remainingDistance = 0;
+
+                if (travelerIndex != -1 && msg.currentNode != -1) {
+                    remainingDistance = calculateRemainingDistance(graph,
+                                                                   msg.currentNode,
+                                                                   travelers[travelerIndex].dst);
+                }
+
+                enqueueTraveler(msg.currentNode, msg.travelerId, remainingDistance);
+
+                printf("[PARENT] Traveler %d WAITING for node %d\n",
+                       msg.travelerId, msg.currentNode);
             }
-            /* Parse completion message */
-            else if (strcmp(buffer, "FINISHED") == 0) {
+            else if (msg.status == STATUS_ENTERED) {
+                printf("[PARENT] Traveler %d ENTERED node %d\n",
+                       msg.travelerId, msg.currentNode);
+            }
+            else if (msg.status == STATUS_LEAVING) {
+                printf("[PARENT] Traveler %d LEAVING node %d\n",
+                       msg.travelerId, msg.currentNode);
+
+                if (msg.currentNode >= 0 && msg.currentNode < MAX_NODES) {
+                    nodeQueues[msg.currentNode].isOccupied = 0;
+                    nodeQueues[msg.currentNode].currentOccupiedBy = -1;
+                }
+            }
+            else if (msg.status == STATUS_FINISHED) {
+                printf("[PARENT] Traveler %d FINISHED\n", msg.travelerId);
+            }
+
+            fflush(stdout);
+
+            if (msg.isFinished) {
                 finished[i] = 1;
                 (*finishedCount)++;
-                entities[i].isMoving = false;
-                entities[i].currentNode = entities[i].targetPos.x; /* Lock at destination */
+                entities[i].isFinished = true;
+                entities[i].currentNode = -1;
+            }
+            else {
+                UpdateEntityFromMessage(entities, msg);
             }
         }
     }
@@ -92,14 +163,21 @@ int main(int argc, char *argv[]) {
     /* 🚀 DIANA'S MODULE INITIALIZATION: Clear and boot up state-queues and timers */
     InitScheduler();
 
-    int pipes[MAX_TRAVELERS][2];
+    int childToParent[MAX_TRAVELERS][2];
+    int parentToChild[MAX_TRAVELERS][2];
     pid_t pids[MAX_TRAVELERS];
     int finished[MAX_TRAVELERS] = {0};
 
     /* Spawn dedicated independent Child Processes for each Traveler entity */
     for (int i = 0; i < travelerCount; i++) {
-        if (pipe(pipes[i]) == -1) {
-            perror("Error: Core communication pipeline creation failed");
+        if (pipe(childToParent[i]) == -1) {
+            perror("Error: childToParent pipe creation failed");
+            cleanup(graph, travelers);
+            return 1;
+        }
+
+        if (pipe(parentToChild[i]) == -1) {
+            perror("Error: parentToChild pipe creation failed");
             cleanup(graph, travelers);
             return 1;
         }
@@ -112,11 +190,18 @@ int main(int argc, char *argv[]) {
         }
 
         if (pid == 0) {
-            close(pipes[i][0]);
-            runChildProcess(graph, travelers[i], pipes[i][1]);
-            exit(0); /* Safeguard child exit boundaries */
+            close(childToParent[i][0]);
+            close(parentToChild[i][1]);
+
+            runChildProcess(graph, travelers[i], childToParent[i][1], parentToChild[i][0]);
+
+            close(childToParent[i][1]);
+            close(parentToChild[i][0]);
+
+            exit(0);
         } else {
-            close(pipes[i][1]);
+            close(childToParent[i][1]);
+            close(parentToChild[i][0]);
             pids[i] = pid;
         }
     }
@@ -140,7 +225,9 @@ int main(int argc, char *argv[]) {
 
         /* Process inbound child IPC update streams */
         if (finishedCount < travelerCount) {
-            readMessagesFromChildren(pipes, travelerCount, finished, &finishedCount, entities);
+           readMessagesFromChildren(childToParent, travelerCount,
+                                     finished, &finishedCount, entities,
+                                     graph, travelers);
             
             /* 🚀 DIANA'S CORE PERIODIC SCHEDULER MONITORING:
              * The Parent checks every free node intersection and dispatches waiting jobs
@@ -148,12 +235,23 @@ int main(int argc, char *argv[]) {
             for (int node = 0; node < graph->numNodes; node++) {
                 if (!nodeQueues[node].isOccupied && nodeQueues[node].size > 0) {
                     int nextTraveler = selectNextTraveler(node);
+
                     if (nextTraveler != -1) {
-                        /* Mark Node Occupied and signal chosen child via GO command */
-                        nodeQueues[node].isOccupied = 1;
-                        nodeQueues[node].currentOccupiedBy = nextTraveler;
-                        
-                        /* JANNAT will code the actual pipe transmission to release the child here */
+                        int travelerIndex = findTravelerIndex(travelers, travelerCount, nextTraveler);
+
+                        if (travelerIndex != -1) {
+                            /* Mark Node Occupied and signal chosen child via GO command */
+                            nodeQueues[node].isOccupied = 1;
+                            nodeQueues[node].currentOccupiedBy = nextTraveler;
+
+                            if (write(parentToChild[travelerIndex][1], "GO", 2) == -1) {
+                                perror("write GO");
+                            }
+
+                            printf("[PARENT] GO sent to Traveler %d for Node %d\n",
+                                   nextTraveler, node);
+                            fflush(stdout);
+                        }
                     }
                 }
             }
@@ -197,7 +295,9 @@ int main(int argc, char *argv[]) {
         if (!finished[i]) {
             kill(pids[i], SIGTERM);
         }
-        close(pipes[i][0]);
+
+        close(childToParent[i][0]);
+        close(parentToChild[i][1]);
         waitpid(pids[i], NULL, 0);
     }
 
@@ -212,8 +312,50 @@ static void cleanup(Graph *graph, Traveler *travelers) {
     if (graph != NULL) freeGraph(graph);
 }
 
-/* Temporary mockup child routine placeholder - Jannat will sync with M6 */
-void runChildProcess(Graph *graph, Traveler traveler, int writePipe) {
-    (void)graph; (void)traveler; (void)writePipe;
-    /* Jannat's IPC code will live natively here */
+/* Jannat's IPC code: child waits for GO from parent before entering each node */
+void runChildProcess(Graph *graph, Traveler traveler, int writePipe, int readPipe) {
+    int path[PATH_SIZE];
+    int pathLength = 0;
+    int totalDistance = 0;
+
+    dijkstra(graph, traveler.src, traveler.dst, path, &pathLength, &totalDistance);
+
+    for (int i = 0; i < pathLength; i++) {
+        int currNode = path[i];
+        int nextNode = (i < pathLength - 1) ? path[i + 1] : -1;
+        int isDest = (i == pathLength - 1);
+
+        sendTravelMessage(writePipe, traveler.id, currNode, nextNode,
+                          isDest, 0, STATUS_WAITING);
+
+        char command[8];
+        ssize_t bytesRead = read(readPipe, command, sizeof(command) - 1);
+
+        if (bytesRead <= 0) {
+            perror("read GO");
+            exit(1);
+        }
+
+        command[bytesRead] = '\0';
+
+        sendTravelMessage(writePipe, traveler.id, currNode, nextNode,
+                          isDest, 0, STATUS_ENTERED);
+
+        sleep(1);
+
+        sendTravelMessage(writePipe, traveler.id, currNode, nextNode,
+                          isDest, 0, STATUS_LEAVING);
+
+        usleep(700000);
+
+        if (nextNode != -1) {
+            int weight = getEdgeWeight(graph, currNode, nextNode);
+            usleep(weight * 1000000);
+        }
+    }
+
+    sendTravelMessage(writePipe, traveler.id, -1, -1,
+                      1, 1, STATUS_FINISHED);
+
+    exit(0);
 }
