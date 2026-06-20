@@ -17,6 +17,7 @@
 
 #define MAX_TRAVELERS 100
 #define PATH_SIZE 100
+double nodeReleaseTime[MAX_NODES] = {0.0};
 
 /* Function prototypes for process handling and message routing */
 void runChildProcess(Graph *graph, Traveler traveler, int writePipe, int readPipe);
@@ -104,14 +105,13 @@ void readMessagesFromChildren(int childToParent[][2],
                        msg.travelerId, msg.currentNode);
             }
             else if (msg.status == STATUS_LEAVING) {
-                printf("[PARENT] Traveler %d LEAVING node %d\n",
-                       msg.travelerId, msg.currentNode);
+    printf("[PARENT] Traveler %d LEAVING node %d\n",
+           msg.travelerId, msg.currentNode);
 
-                if (msg.currentNode >= 0 && msg.currentNode < MAX_NODES) {
-                    nodeQueues[msg.currentNode].isOccupied = 0;
-                    nodeQueues[msg.currentNode].currentOccupiedBy = -1;
-                }
-            }
+    if (msg.currentNode >= 0 && msg.currentNode < MAX_NODES) {
+        nodeReleaseTime[msg.currentNode] = GetTime() + 1.2;
+    }
+}
             else if (msg.status == STATUS_FINISHED) {
                 printf("[PARENT] Traveler %d FINISHED\n", msg.travelerId);
             }
@@ -233,8 +233,18 @@ int main(int argc, char *argv[]) {
              * The Parent checks every free node intersection and dispatches waiting jobs
              */
             for (int node = 0; node < graph->numNodes; node++) {
-                if (!nodeQueues[node].isOccupied && nodeQueues[node].size > 0) {
-                    int nextTraveler = selectNextTraveler(node);
+
+    if (nodeQueues[node].isOccupied &&
+        nodeReleaseTime[node] > 0 &&
+        GetTime() >= nodeReleaseTime[node]) {
+
+        nodeQueues[node].isOccupied = 0;
+        nodeQueues[node].currentOccupiedBy = -1;
+        nodeReleaseTime[node] = 0;
+    }
+
+    if (!nodeQueues[node].isOccupied && nodeQueues[node].size > 0) {
+        int nextTraveler = selectNextTraveler(node);
 
                     if (nextTraveler != -1) {
                         int travelerIndex = findTravelerIndex(travelers, travelerCount, nextTraveler);

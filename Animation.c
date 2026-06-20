@@ -300,6 +300,42 @@ void UpdateTravelerEntitiesM5(TravelerEntity entities[], int travelerCount, floa
         }
     }
 }
+static Vector2 GetWaitingPosition(Vector2 nodePos, Vector2 startPos, int travelerIndex) {
+    Vector2 incomingDir = {
+        nodePos.x - startPos.x,
+        nodePos.y - startPos.y
+    };
+
+    float length = sqrtf(incomingDir.x * incomingDir.x + incomingDir.y * incomingDir.y);
+
+    if (length <= 0) {
+        incomingDir.x = 0;
+        incomingDir.y = 1;
+        length = 1;
+    }
+
+    incomingDir.x /= length;
+    incomingDir.y /= length;
+
+    Vector2 sideDir = {
+        -incomingDir.y,
+        incomingDir.x
+    };
+
+    int lane = travelerIndex % 3;
+
+    float sideOffset = 0.0f;
+    if (lane == 0) sideOffset = -18.0f;
+    else if (lane == 1) sideOffset = 0.0f;
+    else sideOffset = 18.0f;
+
+    Vector2 waitingPos = {
+        nodePos.x - incomingDir.x * 38.0f + sideDir.x * sideOffset,
+        nodePos.y - incomingDir.y * 38.0f + sideDir.y * sideOffset
+    };
+
+    return waitingPos;
+}
 
 void UpdateTravelerEntitiesM6(TravelerEntity entities[], int travelerCount, float deltaTime, void *graph) {
     for (int i = 0; i < travelerCount; i++) {
@@ -360,18 +396,11 @@ void UpdateTravelerEntitiesM6(TravelerEntity entities[], int travelerCount, floa
                 entities[i].currentNode = v;
                 entities[i].nextNode = -1;
 
-                Vector2 nodePos = GetNodePosition(v);
-                Vector2 incomingDir = { nodePos.x - entities[i].startPos.x, nodePos.y - entities[i].startPos.y };
-                
-                float length = sqrtf(incomingDir.x * incomingDir.x + incomingDir.y * incomingDir.y);
-                if (length > 0) {
-                    entities[i].currentPos.x = nodePos.x - (incomingDir.x / length) * 28.0f;
-                    entities[i].currentPos.y = nodePos.y - (incomingDir.y / length) * 28.0f;
-                } else {
-                    entities[i].currentPos = nodePos;
-                }
+              Vector2 nodePos = GetNodePosition(v);
 
-                entities[i].status = ENTITY_WAITING;
+entities[i].currentPos = GetWaitingPosition(nodePos, entities[i].startPos, i);
+
+entities[i].status = ENTITY_WAITING;
                 entities[i].jumpStep = 0;
                 entities[i].timer = 0.0f;
             }
