@@ -66,7 +66,7 @@ static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
 }
 
 /* * readMessagesFromChildren: Centralized Parent function to read status updates from pipes.
- * JANNAT: handles WAITING / GO / LEAVING handshake signals.
+ * handles WAITING / GO / LEAVING handshake signals.
  */
 void readMessagesFromChildren(int childToParent[][2],
                               int travelerCount,
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* 🚀 DIANA'S MODULE INITIALIZATION: Clear and boot up state-queues and timers */
+    
     InitScheduler();
 
     int childToParent[MAX_TRAVELERS][2];
@@ -229,7 +229,7 @@ int main(int argc, char *argv[]) {
                                      finished, &finishedCount, entities,
                                      graph, travelers);
             
-            /* 🚀 DIANA'S CORE PERIODIC SCHEDULER MONITORING:
+            /* CORE PERIODIC SCHEDULER MONITORING:
              * The Parent checks every free node intersection and dispatches waiting jobs
              */
             for (int node = 0; node < graph->numNodes; node++) {
@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
         DrawStaticGraph();
         DrawTravelerEntities(entities, travelerCount);
 
-        /* 🛠️ JANA'S GUI HUD TARGET: Display active scheduling algorithm metric on screen */
+        /*  GUI HUD TARGET: Display active scheduling algorithm metric on screen */
         DrawText(TextFormat("ACTIVE SCHEDULER: %s", (schedulerType == SCHED_SJF ? "SHORTEST JOB FIRST (SJF)" : "FIRST-COME, FIRST-SERVED (FCFS)")), 
                  20, 20, 16, (schedulerType == SCHED_SJF ? GOLD : SKYBLUE));
 

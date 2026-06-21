@@ -24,6 +24,7 @@ This project simulates a delivery system where a delivery entity moves from a **
 | **M4** | `make milestone4`  | `./sim input.txt`     |
 | **M5** | `make milestone5`  | `./sim input.txt`     |
 | **M6** | `make milestone6`  | `./sim input.txt`     |
+| **M7** | `make milestone7`  | `./sim -schd fcfs <file_name>` <br> `./sim -schd sjf <file_name>` |
 
 * Use `make clean` to remove compiled files.
 
@@ -108,4 +109,66 @@ Travelers inside or moving between nodes are displayed using their assigned colo
 * Waiting travelers remain outside the node until access is granted.
 * Every waiting traveler eventually enters the node (no starvation).
 * The GUI reflects waiting and movement states during execution.
+
+## Milestone 7 – Centralized CPU Scheduling Algorithms (Final Stage)
+
+### 🤖 Synchronization & Scheduling Logic
+
+In this final milestone, we replaced the random node admission behavior with a centralized scheduling mechanism managed by the Parent process.
+
+The Parent maintains a dedicated waiting queue (`NodeQueue`) for every graph node and decides which traveler is allowed to enter a node when it becomes available.
+
+The execution flow operates as follows:
+
+1. A traveler reaches a node and sends a `STATUS_WAITING` message to the Parent.
+2. The Parent inserts the traveler into the corresponding node queue.
+3. When a node becomes available, the Parent selects the next traveler according to the active scheduling algorithm.
+4. The Parent sends a `"GO"` message through the dedicated pipe, allowing the selected traveler to continue.
+5. After receiving `STATUS_LEAVING`, the Parent releases the node and schedules the next waiting traveler.
+
+---
+
+### ⚙️ Implemented Scheduling Algorithms
+
+The scheduling policy is selected at runtime using command-line arguments.
+
+#### First-Come, First-Served (FCFS)
+
+A non-preemptive scheduling algorithm that dispatches travelers strictly according to their arrival order.
+
+#### Shortest Job First (SJF)
+
+A non-preemptive scheduling algorithm that prioritizes the traveler with the shortest remaining route to the destination.
+
+The job length is represented by the remaining shortest-path distance calculated using Dijkstra's algorithm.
+
+---
+
+### 📊 Comparative Analysis
+
+FCFS schedules travelers according to their arrival order and guarantees fair service.
+
+SJF schedules travelers according to the shortest remaining route, which may reduce waiting times in some scenarios by prioritizing shorter tasks.
+
+While FCFS preserves arrival order, SJF may delay travelers with longer remaining routes.
+
+| Metric | FCFS | SJF |
+|----------|----------|----------|
+| Selection Criterion | Arrival Time | Remaining Distance |
+| Scheduling Type | Non-Preemptive | Non-Preemptive |
+| Queue Order | Preserved | Optimized by Remaining Route |
+| Starvation Possibility | Low | Possible for Longer Routes |
+
+---
+
+### 🖥️ GUI Integration
+
+The graphical interface displays the currently active scheduling policy during execution.
+
+The HUD dynamically shows:
+
+- **FIRST-COME, FIRST-SERVED (FCFS)** when FCFS is selected.
+- **SHORTEST JOB FIRST (SJF)** when SJF is selected.
+
+Different colors are used to make the active scheduling policy easy to identify during execution and demonstration videos.
 
