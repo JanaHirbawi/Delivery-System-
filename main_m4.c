@@ -11,12 +11,17 @@
 #include "Visualizer.h"
 #include "Animation.h"
 
-int main() {
+int main(int argc, char *argv[]) {
     Graph *graph = NULL;
     Traveler *travelers = NULL;
     int travelerCount = 0;
 
-    if (!loadGraphFromFile("input.txt", &graph, &travelers, &travelerCount)) {
+    if (argc != 2) {
+        printf("Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    if (!loadGraphFromFile(argv[1], &graph, &travelers, &travelerCount)) {
         return 1;
     }
 
