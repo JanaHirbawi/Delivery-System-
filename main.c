@@ -5,14 +5,18 @@
 #include "Dijkstra.h"
 #include "Visualizer.h"
 
-int main() {
+int main(int argc, char *argv[]) {
     Graph *graph = NULL;
     int source, destination;
 
-    if (!loadGraphFromFile("input.txt", &graph, &source, &destination)) {
+    if (argc != 2) {
+        printf("Usage: %s <input_file>\n", argv[0]);
         return 1;
     }
 
+    if (!loadGraphFromFile(argv[1], &graph, &source, &destination)) {
+        return 1;
+    }
     const int screenWidth = 650;
     const int screenHeight = 550;
 
