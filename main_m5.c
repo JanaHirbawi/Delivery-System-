@@ -21,8 +21,12 @@ static void cleanup(Graph *graph, Traveler *travelers) {
     if (graph != NULL) freeGraph(graph);
 }
 
+// EXAM CHANGE:
+// Added noPath parameter so the child can send a special IPC message
+// when there is no valid path to the destination.
 static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
-                              int nextNode, int isDestination, int isFinished) {
+                              int nextNode, int isDestination, int isFinished,
+                              int noPath) {
     TravelMessage msg;
 
     msg.pid = getpid();
@@ -31,6 +35,7 @@ static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
     msg.nextNode = nextNode;
     msg.isDestination = isDestination;
     msg.isFinished = isFinished;
+    msg.noPath = noPath;
 
     if (write(writeFd, &msg, sizeof(TravelMessage)) == -1) {
         perror("write");
@@ -44,13 +49,22 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
 
     dijkstra(graph, traveler.src, traveler.dst, path, &pathLength, &totalDistance);
 
+    // EXAM CHANGE:
+    // If Dijkstra found no path, the child sends a special message to the parent
+    // and exits instead of sending normal movement messages.
+    if (pathLength == 0 || totalDistance == -1) {
+        sendTravelMessage(writeFd, traveler.id, traveler.src, traveler.dst, 0, 1, 1);
+        close(writeFd);
+        exit(0);
+    }
+
     for (int i = 0; i < pathLength; i++) {
         int isLastNode = (i == pathLength - 1);
 
         if (isLastNode) {
-            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1);
+            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1, 0);
         } else {
-            sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0);
+            sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0, 0);
 
             int weight = getEdgeWeight(graph, path[i], path[i + 1]);
             if (weight <= 0) weight = 1;
@@ -100,10 +114,10 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
 }
 
 static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
-                                    int travelerCount,
-                                    int finished[MAX_TRAVELERS],
-                                    int *finishedCount,
-                                    TravelerEntity entities[MAX_TRAVELERS]) {
+                                     int travelerCount,
+                                     int finished[MAX_TRAVELERS],
+                                     int *finishedCount,
+                                     TravelerEntity entities[MAX_TRAVELERS]) {
     for (int i = 0; i < travelerCount; i++) {
         if (finished[i]) continue;
 
@@ -111,6 +125,22 @@ static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
         ssize_t bytesRead = read(pipes[i][0], &msg, sizeof(TravelMessage));
 
         if (bytesRead == sizeof(TravelMessage)) {
+
+            // EXAM CHANGE:
+            // Parent handles no-path messages separately from regular messages.
+            if (msg.noPath) {
+                printf("[PID=%d] traveler %d has NO PATH from node %d to node %d\n",
+                       msg.pid, msg.travelerId, msg.currentNode, msg.nextNode);
+
+                printf("[PID=%d] finished\n", msg.pid);
+
+                finished[i] = 1;
+                (*finishedCount)++;
+                close(pipes[i][0]);
+
+                continue;
+            }
+
             if (msg.isDestination) {
                 printf("[PID=%d] arrived at node %d | DESTINATION\n",
                        msg.pid, msg.currentNode);
@@ -195,18 +225,15 @@ int main(int argc, char *argv[]) {
         DrawStaticGraph();
         DrawTravelerEntities(entities, travelerCount);
 
-  
-
         EndDrawing();
     }
 
-    /* Terminate remaining child processes immediately if window closed early */
     for (int i = 0; i < travelerCount; i++) {
         if (!finished[i]) {
             kill(pids[i], SIGTERM);
             close(pipes[i][0]);
         }
-        /* Clean up process resources securely to prevent zombies */
+
         waitpid(pids[i], NULL, 0);
     }
 
