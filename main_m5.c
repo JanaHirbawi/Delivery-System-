@@ -37,7 +37,11 @@ static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
     }
 }
 
-static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
+/* CHANGE:
+   Added ackReadFd parameter.
+   Why: after the child sends a message to the parent, it must wait for approval
+   before continuing to the next node. */
+static void runChildProcess(Graph *graph, Traveler traveler, int writeFd, int ackReadFd) {
     int path[PATH_SIZE];
     int pathLength = 0;
     int totalDistance = 0;
@@ -49,8 +53,20 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
 
         if (isLastNode) {
             sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1);
+
+            /* CHANGE:
+               Child waits for ACK from the parent after sending the message.
+               Why: this blocks the child until the parent confirms it handled the message. */
+            char ack;
+            read(ackReadFd, &ack, sizeof(char));
         } else {
             sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0);
+
+            /* CHANGE:
+               Child waits for ACK from the parent before moving to the next node.
+               Why: the task requires the child to continue only after parent approval. */
+            char ack;
+            read(ackReadFd, &ack, sizeof(char));
 
             int weight = getEdgeWeight(graph, path[i], path[i + 1]);
             if (weight <= 0) weight = 1;
@@ -59,15 +75,34 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
         }
     }
 
+    /* CHANGE:
+       Close the ACK pipe read end in the child.
+       Why: the child no longer needs to receive approvals after finishing. */
+    close(ackReadFd);
+
     close(writeFd);
     exit(0);
 }
 
+/* CHANGE:
+   Added ackPipes parameter.
+   Why: normal pipes are child-to-parent, and ackPipes are parent-to-child. */
 static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerCount,
-                                int pipes[MAX_TRAVELERS][2], pid_t pids[MAX_TRAVELERS]) {
+                                int pipes[MAX_TRAVELERS][2],
+                                int ackPipes[MAX_TRAVELERS][2],
+                                pid_t pids[MAX_TRAVELERS]) {
     for (int i = 0; i < travelerCount; i++) {
+
         if (pipe(pipes[i]) == -1) {
             perror("pipe");
+            return 0;
+        }
+
+        /* CHANGE:
+           Create a second pipe for ACK messages from parent to child.
+           Why: the parent needs a way to send approval back to the child. */
+        if (pipe(ackPipes[i]) == -1) {
+            perror("ack pipe");
             return 0;
         }
 
@@ -79,14 +114,23 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
         }
 
         if (pid == 0) {
+            /* CHANGE:
+               Child closes unused pipe ends.
+               Why: child writes to pipes[i][1] and reads ACK from ackPipes[i][0]. */
             close(pipes[i][0]);
-            runChildProcess(graph, travelers[i], pipes[i][1]);
+            close(ackPipes[i][1]);
+
+            runChildProcess(graph, travelers[i], pipes[i][1], ackPipes[i][0]);
         }
 
         pids[i] = pid;
         travelers[i].pid = pid;
 
+        /* CHANGE:
+           Parent closes unused pipe ends.
+           Why: parent reads from pipes[i][0] and writes ACK to ackPipes[i][1]. */
         close(pipes[i][1]);
+        close(ackPipes[i][0]);
 
         int flags = fcntl(pipes[i][0], F_GETFL, 0);
         if (flags == -1) return 0;
@@ -99,7 +143,11 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
     return 1;
 }
 
+/* CHANGE:
+   Added ackPipes parameter.
+   Why: parent must send ACK to each child after reading its message. */
 static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
+                                    int ackPipes[MAX_TRAVELERS][2],
                                     int travelerCount,
                                     int finished[MAX_TRAVELERS],
                                     int *finishedCount,
@@ -121,11 +169,22 @@ static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
 
             UpdateEntityFromMessage(entities, msg);
 
+            /* CHANGE:
+               Parent sends one-byte ACK after handling the child message.
+               Why: this releases the child so it can continue to the next node. */
+            char ack = 'A';
+            write(ackPipes[i][1], &ack, sizeof(char));
+
             if (msg.isFinished) {
                 printf("[PID=%d] finished\n", msg.pid);
                 finished[i] = 1;
                 (*finishedCount)++;
+
+                /* CHANGE:
+                   Close both communication directions after child finished.
+                   Why: no more messages or ACKs are needed for this child. */
                 close(pipes[i][0]);
+                close(ackPipes[i][1]);
             }
         }
     }
@@ -153,10 +212,19 @@ int main(int argc, char *argv[]) {
     }
 
     int pipes[MAX_TRAVELERS][2];
+
+    /* CHANGE:
+       Added ACK pipes, one per child.
+       Why: each child needs to receive approval from the parent before continuing. */
+    int ackPipes[MAX_TRAVELERS][2];
+
     pid_t pids[MAX_TRAVELERS];
     int finished[MAX_TRAVELERS] = {0};
 
-    if (!createChildProcesses(graph, travelers, travelerCount, pipes, pids)) {
+    /* CHANGE:
+       Pass ackPipes to child creation.
+       Why: createChildProcesses must create both normal pipes and ACK pipes. */
+    if (!createChildProcesses(graph, travelers, travelerCount, pipes, ackPipes, pids)) {
         cleanup(graph, travelers);
         return 1;
     }
@@ -177,7 +245,11 @@ int main(int argc, char *argv[]) {
         float deltaTime = GetFrameTime();
 
         if (finishedCount < travelerCount) {
-            readMessagesFromChildren(pipes, travelerCount, finished, &finishedCount, entities);
+            /* CHANGE:
+               Pass ackPipes when reading messages.
+               Why: parent reads a child message and then sends ACK back. */
+            readMessagesFromChildren(pipes, ackPipes, travelerCount,
+                                     finished, &finishedCount, entities);
         }
 
         UpdateTravelerEntities(entities, travelerCount, deltaTime, graph);
@@ -195,8 +267,6 @@ int main(int argc, char *argv[]) {
         DrawStaticGraph();
         DrawTravelerEntities(entities, travelerCount);
 
-  
-
         EndDrawing();
     }
 
@@ -205,7 +275,13 @@ int main(int argc, char *argv[]) {
         if (!finished[i]) {
             kill(pids[i], SIGTERM);
             close(pipes[i][0]);
+
+            /* CHANGE:
+               Close ACK pipe if the window was closed before child finished.
+               Why: cleanup resources for unfinished children. */
+            close(ackPipes[i][1]);
         }
+
         /* Clean up process resources securely to prevent zombies */
         waitpid(pids[i], NULL, 0);
     }
