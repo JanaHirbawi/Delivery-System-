@@ -32,20 +32,22 @@ static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
     msg.isDestination = isDestination;
     msg.isFinished = isFinished;
 
-    if (isFinished) {
-        msg.status = STATUS_FINISHED;
-    } else if (isDestination) {
-        msg.status = STATUS_ENTERED;
-    } else {
-        msg.status = STATUS_LEAVING;
-    }
-
     if (write(writeFd, &msg, sizeof(TravelMessage)) == -1) {
         perror("write");
     }
 }
 
-static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
+/* CHANGED: child waits for approval from parent before continuing */
+static void waitForParentApproval(int approvalReadFd) {
+    char approval;
+
+    if (read(approvalReadFd, &approval, sizeof(approval)) == -1) {
+        perror("read approval");
+    }
+}
+
+/* CHANGED: child now receives an approval pipe from parent */
+static void runChildProcess(Graph *graph, Traveler traveler, int writeFd, int approvalReadFd) {
     int path[PATH_SIZE];
     int pathLength = 0;
     int totalDistance = 0;
@@ -56,32 +58,39 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
         int isLastNode = (i == pathLength - 1);
 
         if (isLastNode) {
-            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 0);
-            sleep(1);
-            sendTravelMessage(writeFd, traveler.id, -1, -1, 1, 1);
+            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1);
         } else {
             sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0);
 
-         
-         
-            int weight = getEdgeWeight(graph, path[i], path[i + 1]);
-if (weight <= 0) {
-    weight = 1;
-}
+            /* CHANGED: after sending message, child waits for parent approval */
+            waitForParentApproval(approvalReadFd);
 
-usleep((weight + 1) * 700000);
+            int weight = getEdgeWeight(graph, path[i], path[i + 1]);
+            if (weight <= 0) weight = 1;
+
+            usleep((weight + 1) * 700000);
         }
     }
 
     close(writeFd);
+    close(approvalReadFd);   /* CHANGED: close approval pipe in child */
     exit(0);
 }
 
+/* CHANGED: added approvalPipes for parent-to-child communication */
 static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerCount,
-                                int pipes[MAX_TRAVELERS][2], pid_t pids[MAX_TRAVELERS]) {
+                                int pipes[MAX_TRAVELERS][2],
+                                int approvalPipes[MAX_TRAVELERS][2],
+                                pid_t pids[MAX_TRAVELERS]) {
     for (int i = 0; i < travelerCount; i++) {
         if (pipe(pipes[i]) == -1) {
             perror("pipe");
+            return 0;
+        }
+
+        /* CHANGED: create second pipe from parent to child */
+        if (pipe(approvalPipes[i]) == -1) {
+            perror("approval pipe");
             return 0;
         }
 
@@ -94,18 +103,19 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
 
         if (pid == 0) {
             close(pipes[i][0]);
-            runChildProcess(graph, travelers[i], pipes[i][1]);
+            close(approvalPipes[i][1]);  /* CHANGED: child reads approval */
+
+            runChildProcess(graph, travelers[i], pipes[i][1], approvalPipes[i][0]);
         }
 
         pids[i] = pid;
         travelers[i].pid = pid;
 
         close(pipes[i][1]);
+        close(approvalPipes[i][0]);      /* CHANGED: parent writes approval */
 
         int flags = fcntl(pipes[i][0], F_GETFL, 0);
-        if (flags == -1) {
-            return 0;
-        }
+        if (flags == -1) return 0;
 
         if (fcntl(pipes[i][0], F_SETFL, flags | O_NONBLOCK) == -1) {
             return 0;
@@ -115,31 +125,28 @@ static int createChildProcesses(Graph *graph, Traveler *travelers, int travelerC
     return 1;
 }
 
+/* CHANGED: parent can now send approval back to the child */
+static void sendApprovalToChild(int approvalWriteFd) {
+    char approval = 'A';
+
+    if (write(approvalWriteFd, &approval, sizeof(approval)) == -1) {
+        perror("write approval");
+    }
+}
+
 static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
-                                     int travelerCount,
-                                     int finished[MAX_TRAVELERS],
-                                     int *finishedCount,
-                                     TravelerEntity entities[MAX_TRAVELERS]) {
+                                    int approvalPipes[MAX_TRAVELERS][2],
+                                    int travelerCount,
+                                    int finished[MAX_TRAVELERS],
+                                    int *finishedCount,
+                                    TravelerEntity entities[MAX_TRAVELERS]) {
     for (int i = 0; i < travelerCount; i++) {
-        if (finished[i]) {
-            continue;
-        }
+        if (finished[i]) continue;
 
         TravelMessage msg;
         ssize_t bytesRead = read(pipes[i][0], &msg, sizeof(TravelMessage));
 
         if (bytesRead == sizeof(TravelMessage)) {
-            if (msg.status == STATUS_FINISHED || msg.isFinished) {
-                printf("[PID=%d] finished\n", msg.pid);
-
-                UpdateEntityFromMessage(entities, msg);
-
-                finished[i] = 1;
-                (*finishedCount)++;
-                close(pipes[i][0]);
-                continue;
-            }
-
             if (msg.isDestination) {
                 printf("[PID=%d] arrived at node %d | DESTINATION\n",
                        msg.pid, msg.currentNode);
@@ -149,6 +156,19 @@ static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
             }
 
             UpdateEntityFromMessage(entities, msg);
+
+            /* CHANGED: parent sends approval after receiving child message */
+            if (!msg.isFinished) {
+                sendApprovalToChild(approvalPipes[i][1]);
+            }
+
+            if (msg.isFinished) {
+                printf("[PID=%d] finished\n", msg.pid);
+                finished[i] = 1;
+                (*finishedCount)++;
+                close(pipes[i][0]);
+                close(approvalPipes[i][1]);  /* CHANGED: close approval pipe */
+            }
         }
     }
 }
@@ -175,10 +195,11 @@ int main(int argc, char *argv[]) {
     }
 
     int pipes[MAX_TRAVELERS][2];
+    int approvalPipes[MAX_TRAVELERS][2];   /* CHANGED: parent-to-child pipes */
     pid_t pids[MAX_TRAVELERS];
     int finished[MAX_TRAVELERS] = {0};
 
-    if (!createChildProcesses(graph, travelers, travelerCount, pipes, pids)) {
+    if (!createChildProcesses(graph, travelers, travelerCount, pipes, approvalPipes, pids)) {
         cleanup(graph, travelers);
         return 1;
     }
@@ -186,7 +207,7 @@ int main(int argc, char *argv[]) {
     const int screenWidth = 650;
     const int screenHeight = 550;
 
-    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer - Milestone 5");
+    InitWindow(screenWidth, screenHeight, "Delivery System Visualizer ");
     InitGraphLayout(screenWidth, screenHeight);
     SetTargetFPS(60);
 
@@ -199,10 +220,11 @@ int main(int argc, char *argv[]) {
         float deltaTime = GetFrameTime();
 
         if (finishedCount < travelerCount) {
-            readMessagesFromChildren(pipes, travelerCount, finished, &finishedCount, entities);
+            readMessagesFromChildren(pipes, approvalPipes, travelerCount,
+                                     finished, &finishedCount, entities);
         }
 
-UpdateTravelerEntitiesM5(entities, travelerCount, deltaTime, graph);
+        UpdateTravelerEntities(entities, travelerCount, deltaTime, graph);
 
         BeginDrawing();
 
@@ -224,6 +246,7 @@ UpdateTravelerEntitiesM5(entities, travelerCount, deltaTime, graph);
         if (!finished[i]) {
             kill(pids[i], SIGTERM);
             close(pipes[i][0]);
+            close(approvalPipes[i][1]);   /* CHANGED: close approval pipe */
         }
 
         waitpid(pids[i], NULL, 0);
