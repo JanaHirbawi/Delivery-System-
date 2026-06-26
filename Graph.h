@@ -48,7 +48,8 @@ typedef struct {
     int currentNode;    
     int nextNode;      
     int isDestination;  
-    int isFinished;    
+    int isFinished;  
+    int noPath;
 } TravelMessage;
 
 #endif

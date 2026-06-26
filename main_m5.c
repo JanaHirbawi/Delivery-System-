@@ -22,7 +22,8 @@ static void cleanup(Graph *graph, Traveler *travelers) {
 }
 
 static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
-                              int nextNode, int isDestination, int isFinished) {
+                              int nextNode, int isDestination, int isFinished,
+                              int noPath) {
     TravelMessage msg;
 
     msg.pid = getpid();
@@ -31,6 +32,7 @@ static void sendTravelMessage(int writeFd, int travelerId, int currentNode,
     msg.nextNode = nextNode;
     msg.isDestination = isDestination;
     msg.isFinished = isFinished;
+    msg.noPath = noPath;
 
     if (write(writeFd, &msg, sizeof(TravelMessage)) == -1) {
         perror("write");
@@ -43,14 +45,20 @@ static void runChildProcess(Graph *graph, Traveler traveler, int writeFd) {
     int totalDistance = 0;
 
     dijkstra(graph, traveler.src, traveler.dst, path, &pathLength, &totalDistance);
+    
+    if (pathLength == 0) {
+    sendTravelMessage(writeFd, traveler.id, traveler.src, traveler.dst, 0, 1, 1);
+    close(writeFd);
+    exit(0);
+}
 
     for (int i = 0; i < pathLength; i++) {
         int isLastNode = (i == pathLength - 1);
 
         if (isLastNode) {
-            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1);
+            sendTravelMessage(writeFd, traveler.id, path[i], -1, 1, 1, 0);
         } else {
-            sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0);
+            sendTravelMessage(writeFd, traveler.id, path[i], path[i + 1], 0, 0, 0);
 
             int weight = getEdgeWeight(graph, path[i], path[i + 1]);
             if (weight <= 0) weight = 1;
@@ -111,15 +119,20 @@ static void readMessagesFromChildren(int pipes[MAX_TRAVELERS][2],
         ssize_t bytesRead = read(pipes[i][0], &msg, sizeof(TravelMessage));
 
         if (bytesRead == sizeof(TravelMessage)) {
-            if (msg.isDestination) {
-                printf("[PID=%d] arrived at node %d | DESTINATION\n",
-                       msg.pid, msg.currentNode);
-            } else {
-                printf("[PID=%d] arrived at node %d | next node: %d\n",
-                       msg.pid, msg.currentNode, msg.nextNode);
-            }
+            if (msg.noPath) {
+    printf("[PID=%d] NO PATH from node %d to node %d\n",
+           msg.pid, msg.currentNode, msg.nextNode);
+} else {
+    if (msg.isDestination) {
+        printf("[PID=%d] arrived at node %d | DESTINATION\n",
+               msg.pid, msg.currentNode);
+    } else {
+        printf("[PID=%d] arrived at node %d | next node: %d\n",
+               msg.pid, msg.currentNode, msg.nextNode);
+    }
 
-            UpdateEntityFromMessage(entities, msg);
+    UpdateEntityFromMessage(entities, msg);
+}
 
             if (msg.isFinished) {
                 printf("[PID=%d] finished\n", msg.pid);

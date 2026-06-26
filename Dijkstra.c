@@ -54,7 +54,7 @@ void dijkstra(Graph *graph, int source, int destination,
     int n = graph->numNodes;
 
     if (source < 0 || source >= n || destination < 0 || destination >= n) {
-        printf("No path found\n");
+       // printf("No path found\n");
         return;
     }
 
